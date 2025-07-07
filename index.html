@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clever Brio - Data Simplified for SMBs</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 0; color: #333; }
+        header { background: #fff; color: #333; padding: 1rem 2rem; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        header h2 span.clever { color: #4A90E2; }
+        header h2 span.brio { color: #F5A623; }
+        .hero { padding: 4rem 2rem; text-align: center; background: #fff; }
+        .hero h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+        .hero p { font-size: 1.2rem; margin-bottom: 2rem; }
+        .cta-btn { background: #F5A623; color: #fff; border: none; padding: 1rem 2rem; font-size: 1rem; cursor: pointer; border-radius: 4px; }
+        .features { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; padding: 2rem; max-width: 1000px; margin: auto; }
+        .feature { background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+        footer { text-align: center; padding: 2rem; font-size: 0.9rem; color: #777; }
+        form { margin-top: 2rem; }
+        input, button { padding: 0.5rem; margin: 0.5rem; }
+        @media(max-width: 768px) { .features { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header>
+        <h2><span class="clever">Clever</span> <span class="brio">Brio</span></h2>
+        <p>Cloud & Private Lakehouse for SMBs - Simple. Secure. Scalable.</p>
+    </header>
+    
+    <section class="hero">
+        <h1>Your Data. Organized. Governed. Ready for Action.</h1>
+        <p>Clever Brio empowers small and growing businesses with enterprise-grade analytics, lakehouse technology, and data retention—without the complexity.</p>
+        <form action="mailto:cleverbrio@innorag.com" method="POST" enctype="text/plain">
+            <input type="email" name="email" placeholder="Enter your email" required>
+            <button class="cta-btn" type="submit">Request Early Access</button>
+        </form>
+    </section>
+
+    <section class="features">
+        <div class="feature">
+            <h3>Lakehouse Backbone</h3>
+            <p>Powered by MinIO, Hive Metastore, Trino, and Superset for unified storage, query, and visualization.</p>
+        </div>
+        <div class="feature">
+            <h3>Security & Governance</h3>
+            <p>Built-in audit trails, access monitoring, and data lifecycle management to protect your business.</p>
+        </div>
+        <div class="feature">
+            <h3>Time Travel & Retention</h3>
+            <p>Optional Hudi integration for versioned datasets and flexible data retention policies.</p>
+        </div>
+    </section>
+
+    <footer>
+        &copy; 2025 innorag. All rights reserved.
+    </footer>
+</body>
+</html>
