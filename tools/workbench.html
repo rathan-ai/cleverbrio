@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brio Workbench — free in-browser data analytics by Clever Brio</title>
+<meta name="description" content="Drop CSV, Parquet, or JSON files and analyze them instantly with SQL or a visual query builder. Runs entirely in your browser — your data never leaves your machine. Free, by Clever Brio.">
+<meta property="og:title" content="Brio Workbench — analyze your data files, privately, in the browser">
+<meta property="og:description" content="Free in-browser analytics on CSV, Parquet & JSON. Visual query builder, pivot tables, charts, Parquet conversion. No upload, no signup — data never leaves your machine.">
+<meta property="og:url" content="https://www.cleverbrio.com/tools/workbench.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Analytics: cookie-less, page-level only. Never attach events to file contents,
+     query text, or anything derived from user data — "your data never leaves your
+     browser" is the whole pitch. Do NOT add Google Analytics.
+     TODO: paste site token below, then uncomment.
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "TODO_PASTE_SITE_TOKEN"}'></script>
+-->
+<style>
+  :root{
+    --paper:#EFF3F1; --panel:#FFFFFF; --ink:#17262E; --muted:#5C6E75;
+    --line:#D5DEDB; --accent:#0B6B5D; --accent-soft:#E3EFEC;
+    --signal:#E39A2D; --error:#B3402F; --readout-bg:#132027; --readout-fg:#F0C578;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--paper);
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:32px 32px; background-position:-1px -1px;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit;color:var(--ink)}
+  button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  /* ── header ── */
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .wordmark{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.06em}
+  .wordmark b{color:var(--accent);font-weight:600}
+  .engine{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .led{width:9px;height:9px;border-radius:50%;background:var(--signal);animation:pulse 1.1s ease-in-out infinite}
+  .led.ok{background:#2E9B6B;animation:none}
+  .led.err{background:var(--error);animation:none}
+  @keyframes pulse{50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.led{animation:none}}
+  header .spacer{flex:1}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:4px;font-size:12.5px;font-weight:500}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:#0A5A4E;color:#fff}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* ── layout ── */
+  main{flex:1;display:flex;min-height:0}
+  aside{width:250px;flex:0 0 auto;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .aside-head{padding:10px 14px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+  .catalog{flex:1;overflow:auto;padding:6px 0}
+  .empty-cat{padding:22px 16px;font-size:12.5px;color:var(--muted);line-height:1.55}
+  .tbl{border-bottom:1px solid var(--line)}
+  .tbl-row{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:none;border:none;text-align:left}
+  .tbl-row:hover{background:var(--accent-soft)}
+  .tbl.active .tbl-row{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+  .tbl-name{font-family:var(--mono);font-size:12.5px;font-weight:600;flex:1;word-break:break-all}
+  .tbl-rows{font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .fmt{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;
+    border:1px solid var(--line);border-radius:3px;padding:1px 5px;color:var(--muted)}
+  .fmt.pq{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .tbl-tools{display:flex;align-items:center;gap:8px;padding:0 12px 8px 12px}
+  .mini{font-size:10.5px;padding:3px 9px;border:1px solid var(--line);background:var(--panel);border-radius:3px;font-family:var(--mono);color:var(--muted)}
+  .mini:hover{border-color:var(--accent);color:var(--accent)}
+  .mini:disabled{opacity:.5;cursor:wait}
+  .cols{display:none;padding:2px 0 8px}
+  .tbl.open .cols{display:block}
+  .col-row{display:flex;justify-content:space-between;gap:8px;padding:3px 14px 3px 26px}
+  .col-name{font-family:var(--mono);font-size:11.5px}
+  .col-type{font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+  /* ── work column & tabs ── */
+  .work{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .tabs{display:flex;gap:2px;padding:12px 16px 0;flex:0 0 auto}
+  .tab{border:1px solid var(--line);border-bottom:none;background:var(--paper);color:var(--muted);
+    padding:7px 18px;border-radius:5px 5px 0 0;font-size:12.5px;font-weight:600;font-family:var(--mono);letter-spacing:.04em}
+  .tab.on{background:var(--panel);color:var(--accent)}
+  .mode{flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);margin:0 16px;border:1px solid var(--line);border-radius:0 5px 5px 5px;display:none;max-height:46vh;overflow:auto}
+  .mode.on{display:block}
+
+  /* ── builder ── */
+  .bpanel{padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+  .brow{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .blabel{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;width:88px;flex:0 0 auto;padding-top:7px}
+  .bbody{flex:1;min-width:240px;display:flex;flex-direction:column;gap:8px}
+  .ctl{border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12.5px;background:var(--panel)}
+  select.ctl{font-family:var(--mono);font-size:12px}
+  input.ctl{font-family:var(--mono);font-size:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;max-height:110px;overflow:auto}
+  .chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:14px;
+    padding:3px 11px;font-family:var(--mono);font-size:11.5px;background:var(--panel);color:var(--muted)}
+  .chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .chip:hover{border-color:var(--accent)}
+  .frow,.mrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .frow select,.frow input,.mrow select{max-width:200px}
+  .x{border:none;background:none;color:var(--muted);font-size:15px;padding:2px 7px;line-height:1}
+  .x:hover{color:var(--error)}
+  .addln{align-self:flex-start;border:1px dashed var(--line);background:none;color:var(--muted);
+    padding:4px 12px;border-radius:4px;font-size:11.5px;font-family:var(--mono)}
+  .addln:hover{border-color:var(--accent);color:var(--accent)}
+  .switch{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;user-select:none}
+  .switch input{accent-color:var(--accent);width:15px;height:15px}
+  .sql-preview{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--muted);
+    background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:10px 12px;white-space:pre-wrap;word-break:break-word}
+  .b-runbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+  /* ── sql mode ── */
+  .sqlpanel{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+  textarea#sql{width:100%;height:120px;resize:vertical;min-height:70px;font-family:var(--mono);font-size:13px;line-height:1.55;
+    background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:12px 14px}
+  .run-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .hint{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  select#history{max-width:300px;font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:4px;padding:5px 6px;background:var(--panel);color:var(--muted)}
+
+  /* ── results ── */
+  .results{flex:1;display:flex;flex-direction:column;min-height:120px;margin:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  .res-bar{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .res-meta{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .res-bar .spacer{flex:1}
+  .grid-wrap{flex:1;overflow:auto}
+  table.grid{border-collapse:collapse;font-family:var(--mono);font-size:12px;width:max-content;min-width:100%}
+  table.grid th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:600;padding:7px 12px;border-bottom:2px solid var(--ink);white-space:nowrap;cursor:pointer}
+  table.grid th:hover{color:var(--accent)}
+  table.grid th .t{display:block;font-size:9.5px;font-weight:400;color:var(--muted)}
+  table.grid td{padding:5px 12px;border-bottom:1px solid var(--line);white-space:nowrap;max-width:420px;overflow:hidden;text-overflow:ellipsis}
+  table.grid tr:hover td{background:var(--accent-soft)}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.null{color:var(--muted);font-style:italic}
+  .placeholder{padding:26px;color:var(--muted);font-size:13px;line-height:1.6}
+  .errbox{margin:12px;padding:12px 14px;border:1px solid var(--error);border-left:4px solid var(--error);border-radius:4px;color:var(--error);font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+  .btn.view.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .persp-wrap{flex:1;display:none;min-height:0}
+  .persp-wrap perspective-viewer{width:100%;height:100%}
+  .persp-loading{padding:26px;color:var(--muted);font-size:13px;font-family:var(--mono)}
+  .chart-wrap{flex:1;overflow:auto;padding:16px;display:none}
+  .bar-row{display:grid;grid-template-columns:180px 1fr 90px;align-items:center;gap:10px;margin-bottom:6px;font-family:var(--mono);font-size:11.5px}
+  .bar-label{text-align:right;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar-track{height:18px;background:var(--accent-soft);border-radius:2px;overflow:hidden}
+  .bar-fill{height:100%;background:var(--accent)}
+  .bar-val{font-variant-numeric:tabular-nums}
+
+  /* ── readout strip ── */
+  footer{flex:0 0 auto;background:var(--readout-bg);color:var(--readout-fg);font-family:var(--mono);font-size:11px;letter-spacing:.05em;display:flex;gap:26px;padding:7px 16px;overflow:hidden;white-space:nowrap}
+  footer .k{opacity:.55;margin-right:6px}
+
+  /* ── drop overlay ── */
+  #drop{position:fixed;inset:0;background:rgba(11,107,93,.12);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50;border:3px dashed var(--accent)}
+  #drop.on{display:flex}
+  #drop .msg{background:var(--panel);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:14px;padding:16px 26px;border-radius:6px}
+  #file-input{display:none}
+
+  @media (max-width:760px){
+    main{flex-direction:column}
+    aside{width:100%;max-height:26vh;border-right:none;border-bottom:1px solid var(--line)}
+    .blabel{width:100%;padding-top:0}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">BRIO<b>WORKBENCH</b></span>
+  <a href="https://www.cleverbrio.com" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:.06em" title="Clever Brio — Data Simplified for SMBs">by CLEVER BRIO ↗</a>
+  <span class="engine"><span class="led" id="led"></span><span id="engine-txt">starting engine…</span></span>
+  <span class="spacer"></span>
+  <label class="switch" style="font-size:12px"><input type="checkbox" id="auto-pq" checked> auto → parquet</label>
+  <button class="btn" id="add-files">Add files</button>
+  <input type="file" id="file-input" multiple accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.jsonl">
+</header>
+
+<main>
+  <aside>
+    <div class="aside-head"><span>Catalog</span><span id="tbl-count"></span></div>
+    <div class="catalog" id="catalog">
+      <div class="empty-cat">No tables yet.<br><br>Drop CSV, Parquet, or JSON files anywhere on this page — each file becomes a queryable table. Data never leaves your browser.</div>
+    </div>
+  </aside>
+
+  <section class="work">
+    <div class="tabs">
+      <button class="tab on" id="tab-build">BUILD</button>
+      <button class="tab" id="tab-sql">SQL</button>
+    </div>
+
+    <!-- ── BUILD MODE ── -->
+    <div class="mode on" id="mode-build">
+      <div class="bpanel" id="bpanel">
+        <div class="brow">
+          <span class="blabel">Table</span>
+          <div class="bbody"><select class="ctl" id="b-table" style="max-width:280px"><option value="">— load a file first —</option></select></div>
+        </div>
+
+        <div class="brow">
+          <span class="blabel">Columns</span>
+          <div class="bbody">
+            <div class="chips" id="b-cols"><span class="hint">pick a table to see its columns</span></div>
+          </div>
+        </div>
+
+        <div class="brow">
+          <span class="blabel">Filters</span>
+          <div class="bbody">
+            <div id="b-filters"></div>
+            <button class="addln" id="b-add-filter">+ add filter</button>
+          </div>
+        </div>
+
+        <div class="brow">
+          <span class="blabel">Aggregate</span>
+          <div class="bbody">
+            <label class="switch"><input type="checkbox" id="b-agg"> Group and summarize</label>
+            <div id="b-agg-body" style="display:none;flex-direction:column;gap:8px">
+              <div>
+                <div class="hint" style="margin-bottom:5px">GROUP BY — click dimensions</div>
+                <div class="chips" id="b-dims"></div>
+              </div>
+              <div>
+                <div class="hint" style="margin-bottom:5px">MEASURES</div>
+                <div id="b-measures"></div>
+                <button class="addln" id="b-add-measure" style="margin-top:6px">+ add measure</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="brow">
+          <span class="blabel">Sort · Limit</span>
+          <div class="bbody">
+            <div class="frow">
+              <select class="ctl" id="b-sort"><option value="">no sort</option></select>
+              <select class="ctl" id="b-dir"><option value="DESC">DESC ↓</option><option value="ASC">ASC ↑</option></select>
+              <input class="ctl" id="b-limit" type="number" min="1" max="1000000" value="100" style="width:96px" title="Row limit">
+            </div>
+          </div>
+        </div>
+
+        <div class="brow">
+          <span class="blabel"></span>
+          <div class="bbody">
+            <div class="b-runbar">
+              <button class="btn primary" id="b-run" disabled>Run</button>
+              <label class="switch"><input type="checkbox" id="b-auto" checked> Auto-run on change</label>
+              <button class="btn" id="b-edit-sql">Edit as SQL →</button>
+            </div>
+            <div class="sql-preview" id="b-preview">-- generated SQL appears here as you click</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SQL MODE ── -->
+    <div class="mode" id="mode-sql">
+      <div class="sqlpanel">
+        <textarea id="sql" spellcheck="false" placeholder="-- Full DuckDB SQL, e.g. cross-file joins:&#10;-- SELECT c.region, sum(o.amount) FROM orders o JOIN customers c USING(customer_id) GROUP BY 1;"></textarea>
+        <div class="run-bar">
+          <button class="btn primary" id="run" disabled>Run query</button>
+          <span class="hint">Ctrl/⌘ + Enter</span>
+          <select id="history"><option value="">history</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="results">
+      <div class="res-bar">
+        <span class="res-meta" id="res-meta">no result yet</span>
+        <span class="spacer"></span>
+        <button class="btn view on" id="v-table" disabled>Table</button>
+        <button class="btn view" id="v-chart" disabled>Chart</button>
+        <button class="btn view" id="v-pivot" disabled title="Perspective pivot: drag-and-drop grouping, aggregation, candlestick/OHLC and more">Pivot</button>
+        <button class="btn" id="export-csv" disabled>Export CSV</button>
+      </div>
+      <div class="grid-wrap" id="grid-wrap">
+        <div class="placeholder">Load a file, pick a table, click columns and filters — results appear here instantly. Tip: click a column header in the results to sort by it.</div>
+      </div>
+      <div class="chart-wrap" id="chart-wrap"></div>
+      <div class="persp-wrap" id="persp-wrap"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span><span class="k">ENGINE</span><span id="ro-engine">INIT</span></span>
+  <span><span class="k">TABLES</span><span id="ro-tables">0</span></span>
+  <span><span class="k">LAST QUERY</span><span id="ro-time">—</span></span>
+  <span><span class="k">ROWS RETURNED</span><span id="ro-rows">—</span></span>
+  <span style="margin-left:auto"><span class="k">NEED THIS AT COMPANY SCALE?</span><a href="https://www.cleverbrio.com" style="color:var(--readout-fg)">cleverbrio.com → early access</a></span>
+</footer>
+
+<div id="drop"><div class="msg">Release to load files into DuckDB</div></div>
+<datalist id="dl-vals"></datalist>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+let duckdb=null, db=null, conn=null, lastResult=null, lastSQL='', tables=[], history=[], engineReady='';
+const schemas={};           // table -> [{name,type}]
+const distinctCache={};     // "table|col" -> [values]
+
+function setEngine(state,msg){
+  $('led').className='led '+(state==='ok'?'ok':state==='err'?'err':'');
+  $('engine-txt').textContent=msg;
+  $('ro-engine').textContent=state==='ok'?'READY':state==='err'?'FAULT':'INIT';
+}
+
+/* ═══ engine init ═══ */
+(async()=>{
+  try{
+    duckdb=await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm');
+    const bundle=await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+    const workerUrl=URL.createObjectURL(new Blob([`importScripts("${bundle.mainWorker}");`],{type:'text/javascript'}));
+    const worker=new Worker(workerUrl);
+    db=new duckdb.AsyncDuckDB(new duckdb.VoidLogger(),worker);
+    await db.instantiate(bundle.mainModule,bundle.pthreadWorker);
+    URL.revokeObjectURL(workerUrl);
+    conn=await db.connect();
+    engineReady='DuckDB '+(await db.getVersion());
+    setEngine('ok',engineReady);
+    $('run').disabled=false;$('b-run').disabled=false;
+  }catch(e){
+    console.error(e);
+    setEngine('err','engine failed to load');
+    $('grid-wrap').innerHTML=`<div class="errbox">DuckDB engine could not load.\n\nMost likely causes:\n1. This page is running inside a sandboxed preview that blocks cdn.jsdelivr.net — download the file and open it directly in Chrome or Edge.\n2. No internet on first load (the ~5 MB WASM bundle is fetched once, then cached).\n\nDetail: ${esc(e.message||String(e))}</div>`;
+  }
+})();
+
+/* ═══ file loading ═══ */
+const seen=new Set();
+function tableName(fname){
+  let base=fname.replace(/\.[^.]+$/,'').toLowerCase().replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'')||'table';
+  if(/^[0-9]/.test(base))base='t_'+base;
+  let name=base,i=2;
+  while(seen.has(name))name=base+'_'+(i++);
+  seen.add(name);return name;
+}
+
+async function loadFiles(fileList){
+  if(!conn){alert('Engine not ready yet — give it a moment.');return;}
+  let firstNew=null;
+  for(const file of fileList){
+    const ext=(file.name.split('.').pop()||'').toLowerCase();
+    const reader={csv:'read_csv_auto',tsv:'read_csv_auto',txt:'read_csv_auto',
+                  parquet:'read_parquet',json:'read_json_auto',ndjson:'read_json_auto',jsonl:'read_json_auto'}[ext];
+    if(!reader){showError(`Skipped ${file.name} — unsupported type (.${ext}). Use CSV, TSV, Parquet, or JSON.`);continue;}
+    try{
+      const vname=tableName(file.name);
+      const fid='f_'+vname+'.'+ext;
+      // streaming: register the browser File handle — DuckDB reads it in chunks
+      // on demand instead of copying the whole file into WASM memory
+      await db.registerFileHandle(fid,file,duckdb.DuckDBDataProtocol.BROWSER_FILEREADER,true);
+      await conn.query(`CREATE OR REPLACE VIEW "${vname}" AS SELECT * FROM ${reader}('${fid}')`);
+      let rows='?';
+      try{const r=await conn.query(`SELECT count(*)::VARCHAR AS c FROM "${vname}"`);rows=r.toArray()[0].c;}catch(_){}
+      const d=await conn.query(`DESCRIBE "${vname}"`);
+      schemas[vname]=d.toArray().map(r=>({name:r.column_name,type:r.column_type}));
+      const t={name:vname,file:file.name,rows,fid,ext,size:file.size,format:ext==='parquet'?'parquet':ext,converted:false};
+      tables.push(t);
+      if($('auto-pq').checked&&t.format!=='parquet'){
+        $('engine-txt').textContent='converting '+vname+' → parquet…';
+        refreshCatalog();
+        await convertToParquet(t,null,false);
+        $('engine-txt').textContent=engineReady;
+      }
+      firstNew=firstNew||vname;
+    }catch(e){showError(`Could not load ${file.name}: ${e.message||e}`);}
+  }
+  refreshCatalog();
+  refreshTableSelect();
+  if(firstNew){$('b-table').value=firstNew;onTableChange();}
+}
+
+function refreshCatalog(){
+  const cat=$('catalog');
+  if(!tables.length)return;
+  cat.innerHTML='';
+  for(const t of tables){
+    const cols=schemas[t.name]||[];
+    const div=document.createElement('div');
+    div.className='tbl'+(t.name===B.table?' active':'');
+    div.dataset.name=t.name;
+    const isPq=t.format==='parquet';
+    div.innerHTML=`
+      <button class="tbl-row"><span class="tbl-name">${esc(t.name)}</span>
+        <span class="fmt ${isPq?'pq':''}">${esc(t.format)}</span>
+        <span class="tbl-rows">${esc(String(t.rows))} × ${cols.length}</span></button>
+      <div class="tbl-tools">
+        <span class="tbl-rows">${fmtBytes(t.size)}</span>
+        ${isPq
+          ?(t.converted?`<button class="mini" data-save="1" title="Download the converted .parquet so you can load it directly next time">save .parquet</button>`:'')
+          :`<button class="mini" data-conv="1" title="Convert to Parquet: faster queries, less memory, and downloads a .parquet copy for next time">→ parquet</button>`}
+      </div>
+      <div class="cols">${cols.map(c=>`
+        <div class="col-row"><span class="col-name">${esc(c.name)}</span><span class="col-type">${esc(c.type)}</span></div>`).join('')}</div>`;
+    div.querySelector('.tbl-row').addEventListener('click',()=>{
+      div.classList.toggle('open');
+      $('b-table').value=t.name;onTableChange();
+    });
+    const conv=div.querySelector('[data-conv]');
+    if(conv)conv.addEventListener('click',e=>{e.stopPropagation();convertToParquet(t,conv);});
+    const save=div.querySelector('[data-save]');
+    if(save)save.addEventListener('click',e=>{e.stopPropagation();saveParquet(t,save);});
+    cat.appendChild(div);
+  }
+  $('tbl-count').textContent=tables.length;
+  $('ro-tables').textContent=tables.length;
+}
+
+function refreshTableSelect(){
+  const sel=$('b-table');
+  sel.innerHTML=tables.length
+    ?tables.map(t=>`<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('')
+    :'<option value="">— load a file first —</option>';
+}
+
+/* ═══ parquet conversion ═══ */
+async function convertToParquet(t,btn,download=true){
+  if(!conn)return;
+  if(btn){btn.disabled=true;btn.textContent='converting…';}
+  try{
+    const out='conv_'+t.name+'.parquet';
+    await conn.query(`COPY (SELECT * FROM "${t.name}") TO '${out}' (FORMAT PARQUET)`);
+    const buf=await db.copyFileToBuffer(out);
+    await db.dropFile(out);
+    // swap the table's backing from the original file to the parquet buffer
+    const newFid='p_'+t.name+'.parquet';
+    await db.registerFileBuffer(newFid,buf);
+    await conn.query(`CREATE OR REPLACE VIEW "${t.name}" AS SELECT * FROM read_parquet('${newFid}')`);
+    try{await db.dropFile(t.fid);}catch(_){}
+    const oldSize=t.size;
+    t.fid=newFid;t.format='parquet';t.size=buf.length;t.converted=true;
+    if(download)downloadBlob(buf,t.name+'.parquet','application/octet-stream');
+    refreshCatalog();
+    $('res-meta').textContent=`${t.name}: ${fmtBytes(oldSize)} → ${fmtBytes(buf.length)} parquet${download?' · downloaded':''}`;
+  }catch(e){
+    showError(`Parquet conversion failed for ${t.name}: ${e.message||e}`);
+    if(btn){btn.disabled=false;btn.textContent='→ parquet';}
+  }
+}
+
+async function saveParquet(t,btn){
+  try{
+    btn.disabled=true;
+    const buf=await db.copyFileToBuffer(t.fid);
+    downloadBlob(buf,t.name+'.parquet','application/octet-stream');
+  }catch(e){showError(`Could not export ${t.name}: ${e.message||e}`);}
+  finally{btn.disabled=false;}
+}
+
+function fmtBytes(n){
+  if(n==null)return'';
+  if(n<1024)return n+' B';
+  if(n<1048576)return(n/1024).toFixed(1)+' KB';
+  if(n<1073741824)return(n/1048576).toFixed(1)+' MB';
+  return(n/1073741824).toFixed(2)+' GB';
+}
+
+function downloadBlob(data,name,type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([data],{type}));
+  a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+
+/* ═══ builder state ═══ */
+const B={table:'',cols:new Set(),filters:[],agg:false,dims:new Set(),measures:[],sortCol:'',sortDir:'DESC',limit:100};
+const OPS=['=','!=','>','>=','<','<=','contains','starts with','in','is null','is not null'];
+const FNS=[['count','count rows'],['sum','sum'],['avg','average'],['min','min'],['max','max'],['count_distinct','count distinct'],['median','median']];
+
+function onTableChange(){
+  B.table=$('b-table').value;
+  B.cols=new Set();B.filters=[];B.dims=new Set();B.measures=[];B.sortCol='';
+  document.querySelectorAll('.tbl').forEach(d=>d.classList.toggle('active',d.dataset.name===B.table));
+  renderCols();renderDims();renderFilters();renderMeasures();refreshSortSelect();
+  syncPreview();autoRun();
+}
+
+function colsOf(){return schemas[B.table]||[]}
+function isNum(c){const s=colsOf().find(x=>x.name===c);return s&&/INT|FLOAT|DOUBLE|DECIMAL|HUGE/i.test(s.type)}
+
+function renderCols(){
+  const box=$('b-cols');
+  const cols=colsOf();
+  if(!cols.length){box.innerHTML='<span class="hint">pick a table to see its columns</span>';return;}
+  box.innerHTML=`<button class="chip ${B.cols.size===0?'on':''}" data-all="1">all columns</button>`+
+    cols.map(c=>`<button class="chip ${B.cols.has(c.name)?'on':''}" data-col="${esc(c.name)}">${esc(c.name)}</button>`).join('');
+  box.querySelectorAll('.chip').forEach(ch=>ch.addEventListener('click',()=>{
+    if(ch.dataset.all){B.cols.clear();}
+    else{const c=ch.dataset.col;B.cols.has(c)?B.cols.delete(c):B.cols.add(c);}
+    renderCols();refreshSortSelect();syncPreview();autoRun();
+  }));
+}
+
+function renderDims(){
+  const box=$('b-dims');
+  box.innerHTML=colsOf().map(c=>`<button class="chip ${B.dims.has(c.name)?'on':''}" data-col="${esc(c.name)}">${esc(c.name)}</button>`).join('')||'<span class="hint">no table selected</span>';
+  box.querySelectorAll('.chip').forEach(ch=>ch.addEventListener('click',()=>{
+    const c=ch.dataset.col;B.dims.has(c)?B.dims.delete(c):B.dims.add(c);
+    renderDims();refreshSortSelect();syncPreview();autoRun();
+  }));
+}
+
+function renderFilters(){
+  const box=$('b-filters');box.innerHTML='';
+  B.filters.forEach((f,i)=>{
+    const row=document.createElement('div');
+    row.className='frow';row.style.marginBottom='6px';
+    row.innerHTML=`
+      <select class="ctl f-col">${colsOf().map(c=>`<option ${f.col===c.name?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
+      <select class="ctl f-op">${OPS.map(o=>`<option ${f.op===o?'selected':''}>${o}</option>`).join('')}</select>
+      <input class="ctl f-val" list="dl-vals" placeholder="value" value="${esc(f.val??'')}" ${/null/.test(f.op)?'disabled':''}>
+      <button class="x" title="remove">×</button>`;
+    const [colS,opS,valI]=[row.querySelector('.f-col'),row.querySelector('.f-op'),row.querySelector('.f-val')];
+    colS.addEventListener('change',()=>{f.col=colS.value;loadDistinct(f.col);syncPreview();autoRun();});
+    opS.addEventListener('change',()=>{f.op=opS.value;valI.disabled=/null/.test(f.op);syncPreview();autoRun();});
+    valI.addEventListener('focus',()=>loadDistinct(f.col));
+    valI.addEventListener('input',()=>{f.val=valI.value;syncPreview();autoRun();});
+    row.querySelector('.x').addEventListener('click',()=>{B.filters.splice(i,1);renderFilters();syncPreview();autoRun();});
+    box.appendChild(row);
+  });
+}
+
+async function loadDistinct(col){
+  if(!conn||!B.table||!col)return;
+  const key=B.table+'|'+col;
+  if(!distinctCache[key]){
+    try{
+      const r=await conn.query(`SELECT DISTINCT "${col.replace(/"/g,'""')}"::VARCHAR AS v FROM "${B.table}" WHERE "${col.replace(/"/g,'""')}" IS NOT NULL LIMIT 25`);
+      distinctCache[key]=r.toArray().map(x=>x.v);
+    }catch(_){distinctCache[key]=[];}
+  }
+  $('dl-vals').innerHTML=distinctCache[key].map(v=>`<option value="${esc(v)}">`).join('');
+}
+
+function renderMeasures(){
+  const box=$('b-measures');box.innerHTML='';
+  B.measures.forEach((m,i)=>{
+    const row=document.createElement('div');
+    row.className='mrow';row.style.marginBottom='6px';
+    row.innerHTML=`
+      <select class="ctl m-fn">${FNS.map(([v,l])=>`<option value="${v}" ${m.fn===v?'selected':''}>${l}</option>`).join('')}</select>
+      <select class="ctl m-col" ${m.fn==='count'?'disabled':''}>
+        ${colsOf().map(c=>`<option ${m.col===c.name?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
+      <button class="x" title="remove">×</button>`;
+    const [fnS,colS]=[row.querySelector('.m-fn'),row.querySelector('.m-col')];
+    fnS.addEventListener('change',()=>{m.fn=fnS.value;colS.disabled=m.fn==='count';refreshSortSelect();syncPreview();autoRun();});
+    colS.addEventListener('change',()=>{m.col=colS.value;refreshSortSelect();syncPreview();autoRun();});
+    row.querySelector('.x').addEventListener('click',()=>{B.measures.splice(i,1);renderMeasures();refreshSortSelect();syncPreview();autoRun();});
+    box.appendChild(row);
+  });
+}
+
+function outputCols(){
+  if(B.agg){
+    const meas=B.measures.map(m=>m.fn==='count'?'count':(m.fn+'_'+m.col));
+    const out=[...B.dims,...meas];
+    return out.length?out:['count'];
+  }
+  return B.cols.size?[...B.cols]:colsOf().map(c=>c.name);
+}
+
+function refreshSortSelect(){
+  const sel=$('b-sort'),cur=B.sortCol;
+  const opts=outputCols();
+  sel.innerHTML='<option value="">no sort</option>'+opts.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join('');
+  if(cur&&!opts.includes(cur))B.sortCol='';
+}
+
+/* ═══ SQL generation ═══ */
+function qi(c){return'"'+String(c).replace(/"/g,'""')+'"'}
+function qv(col,v){return isNum(col)&&v!==''&&!isNaN(v)?v:"'"+String(v).replace(/'/g,"''")+"'"}
+
+function buildSQL(){
+  if(!B.table)return'';
+  let select;
+  if(B.agg){
+    const meas=B.measures.map(m=>{
+      if(m.fn==='count')return'count(*) AS "count"';
+      const alias=qi(m.fn+'_'+m.col);
+      return m.fn==='count_distinct'?`count(DISTINCT ${qi(m.col)}) AS ${alias}`:`${m.fn}(${qi(m.col)}) AS ${alias}`;
+    });
+    const parts=[...[...B.dims].map(qi),...meas];
+    select=parts.length?parts:['count(*) AS "count"'];
+  }else{
+    select=B.cols.size&&B.cols.size<colsOf().length?[...B.cols].map(qi):['*'];
+  }
+  let sql='SELECT '+select.join(', ')+'\nFROM '+qi(B.table);
+  const conds=B.filters.filter(f=>f.col&&f.op&&(/null/.test(f.op)||String(f.val??'')!=='')).map(f=>{
+    const c=qi(f.col),v=String(f.val??'');
+    switch(f.op){
+      case'is null':return c+' IS NULL';
+      case'is not null':return c+' IS NOT NULL';
+      case'contains':return c+"::VARCHAR ILIKE '%"+v.replace(/'/g,"''")+"%'";
+      case'starts with':return c+"::VARCHAR ILIKE '"+v.replace(/'/g,"''")+"%'";
+      case'in':return c+' IN ('+v.split(',').map(s=>qv(f.col,s.trim())).join(', ')+')';
+      default:return c+' '+f.op+' '+qv(f.col,v);
+    }
+  });
+  if(conds.length)sql+='\nWHERE '+conds.join('\n  AND ');
+  if(B.agg&&B.dims.size)sql+='\nGROUP BY '+[...B.dims].map(qi).join(', ');
+  if(B.sortCol)sql+='\nORDER BY '+qi(B.sortCol)+' '+B.sortDir;
+  sql+='\nLIMIT '+(B.limit||100);
+  return sql+';';
+}
+
+function syncPreview(){
+  const sql=buildSQL();
+  $('b-preview').textContent=sql||'-- generated SQL appears here as you click';
+}
+
+let autoTimer=null;
+function autoRun(){
+  if(!$('b-auto').checked||!conn||!B.table)return;
+  clearTimeout(autoTimer);
+  autoTimer=setTimeout(()=>runSQL(buildSQL(),true),450);
+}
+
+/* ═══ query execution ═══ */
+async function runSQL(sql,silentHistory=false){
+  sql=(sql??'').trim();
+  if(!sql||!conn)return;
+  $('run').disabled=true;$('b-run').disabled=true;
+  const t0=performance.now();
+  try{
+    const res=await conn.query(sql);
+    const ms=performance.now()-t0;
+    lastResult={fields:res.schema.fields.map(f=>({name:f.name,type:String(f.type)})),rows:res.toArray()};
+    lastSQL=sql;
+    if(!silentHistory)pushHistory(sql);
+    renderResult(ms);
+  }catch(e){
+    showError(e.message||String(e));
+    $('ro-time').textContent='ERR';$('ro-rows').textContent='—';
+  }finally{
+    $('run').disabled=false;$('b-run').disabled=false;
+  }
+}
+
+function renderResult(ms){
+  const {fields,rows}=lastResult;
+  const CAP=1000,shown=rows.slice(0,CAP);
+  const numeric=new Set(fields.filter(f=>/int|float|double|decimal/i.test(f.type)).map(f=>f.name));
+  let html='<table class="grid"><thead><tr>'+fields.map(f=>
+    `<th data-col="${esc(f.name)}" title="click to sort">${esc(f.name)}<span class="t">${esc(shortType(f.type))}</span></th>`).join('')+'</tr></thead><tbody>';
+  for(const row of shown){
+    html+='<tr>'+fields.map(f=>{
+      const v=row[f.name];
+      if(v===null||v===undefined)return'<td class="null">null</td>';
+      return`<td class="${numeric.has(f.name)?'num':''}">${esc(fmt(v))}</td>`;
+    }).join('')+'</tr>';
+  }
+  html+='</tbody></table>';
+  const gw=$('grid-wrap');
+  gw.innerHTML=html;
+  gw.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{
+    const col=th.dataset.col;
+    if(outputCols().includes(col)){
+      B.sortDir=(B.sortCol===col&&B.sortDir==='DESC')?'ASC':'DESC';
+      B.sortCol=col;
+      $('b-dir').value=B.sortDir;refreshSortSelect();syncPreview();
+      runSQL(buildSQL(),true);
+    }
+  }));
+  $('res-meta').textContent=`${rows.length.toLocaleString()} row${rows.length===1?'':'s'} · ${fields.length} cols · ${ms.toFixed(1)} ms`+(rows.length>CAP?` · showing first ${CAP}`:'');
+  $('ro-time').textContent=ms.toFixed(1)+' MS';
+  $('ro-rows').textContent=rows.length.toLocaleString();
+  $('export-csv').disabled=rows.length===0;
+  $('v-table').disabled=false;
+  $('v-chart').disabled=!chartable();
+  $('v-pivot').disabled=rows.length===0;
+  // keep the user's current view across auto-run refreshes
+  if(pane==='chart'&&chartable())renderChart();
+  else if(pane==='persp'&&persp)updatePerspective();
+  else pane='grid';
+  setPane(pane);
+}
+
+function chartable(){
+  if(!lastResult)return false;
+  const {fields,rows}=lastResult;
+  return fields.length>=2&&rows.length>0&&rows.length<=60&&rows.every(r=>{
+    const v=r[fields[1].name];return v===null||typeof v==='number'||typeof v==='bigint';
+  });
+}
+
+/* ═══ view panes: table | chart | pivot ═══ */
+let pane='grid';
+function setPane(p){
+  pane=p;
+  $('grid-wrap').style.display=p==='grid'?'block':'none';
+  $('chart-wrap').style.display=p==='chart'?'block':'none';
+  $('persp-wrap').style.display=p==='persp'?'block':'none';
+  $('v-table').classList.toggle('on',p==='grid');
+  $('v-chart').classList.toggle('on',p==='chart');
+  $('v-pivot').classList.toggle('on',p==='persp');
+}
+$('v-table').addEventListener('click',()=>setPane('grid'));
+$('v-chart').addEventListener('click',()=>{renderChart();setPane('chart');});
+$('v-pivot').addEventListener('click',async()=>{
+  setPane('persp');
+  if(!persp&&!$('persp-wrap').querySelector('.persp-loading'))
+    $('persp-wrap').innerHTML='<div class="persp-loading">loading Perspective engine (first use only)…</div>';
+  try{await updatePerspective();}
+  catch(e){$('persp-wrap').innerHTML=`<div class="errbox">Perspective failed to load: ${esc(e.message||e)}\n\nIt is fetched from cdn.jsdelivr.net on first use — check the connection, then click Pivot again.</div>`;persp=null;}
+});
+
+function renderChart(){
+  const {fields,rows}=lastResult;
+  const key=fields[0].name,val=fields[1].name;
+  const nums=rows.map(r=>Number(r[val]??0));
+  const max=Math.max(...nums.map(Math.abs),1e-9);
+  $('chart-wrap').innerHTML=`<div class="hint" style="margin-bottom:12px">${esc(val)} by ${esc(key)}</div>`+
+    rows.map((r,i)=>`<div class="bar-row">
+      <span class="bar-label" title="${esc(fmt(r[key]))}">${esc(fmt(r[key]))}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${(Math.abs(nums[i])/max*100).toFixed(2)}%"></span></span>
+      <span class="bar-val">${nums[i].toLocaleString(undefined,{maximumFractionDigits:2})}</span></div>`).join('');
+}
+
+/* ═══ Perspective (lazy-loaded pivot engine) ═══ */
+let persp=null, perspTable=null, perspViewer=null;
+
+async function ensurePerspective(){
+  if(persp)return;
+  const link=document.createElement('link');
+  link.rel='stylesheet';
+  link.href='https://cdn.jsdelivr.net/npm/@finos/perspective-viewer@3/dist/css/pro.css';
+  document.head.appendChild(link);
+  const [core]=await Promise.all([
+    import('https://cdn.jsdelivr.net/npm/@finos/perspective@3/dist/cdn/perspective.js'),
+    import('https://cdn.jsdelivr.net/npm/@finos/perspective-viewer@3/dist/cdn/perspective-viewer.js'),
+    import('https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid@3/dist/cdn/perspective-viewer-datagrid.js'),
+    import('https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-d3fc@3/dist/cdn/perspective-viewer-d3fc.js'),
+  ]);
+  persp=await core.default.worker();
+}
+
+function perspRows(){
+  return lastResult.rows.map(r=>{
+    const o={};
+    for(const f of lastResult.fields){
+      let v=r[f.name];
+      if(typeof v==='bigint')v=Number(v);
+      else if(v instanceof Uint8Array)v='<blob>';
+      else if(v&&typeof v==='object'&&!(v instanceof Date)){
+        try{v=JSON.stringify(v,(k,x)=>typeof x==='bigint'?Number(x):x);}catch(_){v=String(v);}
+      }
+      o[f.name]=v;
+    }
+    return o;
+  });
+}
+
+async function updatePerspective(){
+  if(!lastResult||!lastResult.rows.length)return;
+  await ensurePerspective();
+  const rows=perspRows();
+  if(perspTable&&perspViewer){
+    // same schema → replace data in place, preserving the user's pivot config
+    try{await perspTable.replace(rows);return;}
+    catch(_){try{await perspTable.delete();}catch(__){} perspTable=null;}
+  }
+  perspTable=await persp.table(rows);
+  if(!perspViewer){
+    $('persp-wrap').innerHTML='';
+    perspViewer=document.createElement('perspective-viewer');
+    perspViewer.setAttribute('theme','Pro Light');
+    $('persp-wrap').appendChild(perspViewer);
+  }
+  await perspViewer.load(perspTable);
+}
+
+function showError(msg){
+  $('grid-wrap').innerHTML=`<div class="errbox">${esc(msg)}</div>`;
+  setPane('grid');
+  $('res-meta').textContent='query failed';
+  $('export-csv').disabled=true;
+  $('v-chart').disabled=true;$('v-pivot').disabled=true;
+}
+
+/* ═══ history / export ═══ */
+function pushHistory(sql){
+  if(history[0]===sql)return;
+  history.unshift(sql);history=history.slice(0,20);
+  $('history').innerHTML='<option value="">history</option>'+history.map((q,i)=>
+    `<option value="${i}">${esc(q.replace(/\s+/g,' ').slice(0,60))}</option>`).join('');
+}
+$('history').addEventListener('change',e=>{
+  if(e.target.value!==''){$('sql').value=history[+e.target.value];e.target.value='';$('sql').focus();}
+});
+
+$('export-csv').addEventListener('click',()=>{
+  if(!lastResult)return;
+  const {fields,rows}=lastResult;
+  const q=s=>{s=String(s);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  let csv=fields.map(f=>q(f.name)).join(',')+'\n';
+  for(const r of rows)csv+=fields.map(f=>{const v=r[f.name];return v==null?'':q(fmt(v));}).join(',')+'\n';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='brio_workbench_result.csv';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+});
+
+/* ═══ helpers ═══ */
+function fmt(v){
+  if(typeof v==='bigint')return v.toString();
+  if(v instanceof Date)return v.toISOString().replace('T',' ').replace(/\.000Z$/,'');
+  if(v instanceof Uint8Array)return'<blob '+v.length+'B>';
+  if(typeof v==='object'&&v!==null){try{return JSON.stringify(v,(k,x)=>typeof x==='bigint'?x.toString():x);}catch(_){return String(v);}}
+  return String(v);
+}
+function shortType(t){return t.replace(/<.*$/,'').replace(/Utf8/i,'text').toLowerCase()}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+/* ═══ wiring ═══ */
+$('tab-build').addEventListener('click',()=>setMode('build'));
+$('tab-sql').addEventListener('click',()=>setMode('sql'));
+function setMode(m){
+  $('tab-build').classList.toggle('on',m==='build');
+  $('tab-sql').classList.toggle('on',m==='sql');
+  $('mode-build').classList.toggle('on',m==='build');
+  $('mode-sql').classList.toggle('on',m==='sql');
+}
+
+$('b-table').addEventListener('change',onTableChange);
+$('b-add-filter').addEventListener('click',()=>{
+  const first=(colsOf()[0]||{}).name||'';
+  if(!first)return;
+  B.filters.push({col:first,op:'=',val:''});
+  renderFilters();loadDistinct(first);syncPreview();
+});
+$('b-agg').addEventListener('change',e=>{
+  B.agg=e.target.checked;
+  $('b-agg-body').style.display=B.agg?'flex':'none';
+  if(B.agg&&!B.measures.length){B.measures.push({fn:'count',col:(colsOf()[0]||{}).name||''});renderMeasures();}
+  refreshSortSelect();syncPreview();autoRun();
+});
+$('b-add-measure').addEventListener('click',()=>{
+  B.measures.push({fn:'sum',col:(colsOf().find(c=>/INT|FLOAT|DOUBLE|DECIMAL/i.test(c.type))||colsOf()[0]||{}).name||''});
+  renderMeasures();refreshSortSelect();syncPreview();autoRun();
+});
+$('b-sort').addEventListener('change',e=>{B.sortCol=e.target.value;syncPreview();autoRun();});
+$('b-dir').addEventListener('change',e=>{B.sortDir=e.target.value;syncPreview();autoRun();});
+$('b-limit').addEventListener('input',e=>{B.limit=Math.max(1,+e.target.value||100);syncPreview();autoRun();});
+$('b-run').addEventListener('click',()=>runSQL(buildSQL()));
+$('b-edit-sql').addEventListener('click',()=>{$('sql').value=buildSQL();setMode('sql');$('sql').focus();});
+
+$('run').addEventListener('click',()=>runSQL($('sql').value));
+$('sql').addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runSQL($('sql').value);}
+});
+$('add-files').addEventListener('click',()=>$('file-input').click());
+$('file-input').addEventListener('change',e=>{loadFiles([...e.target.files]);e.target.value='';});
+
+let dragDepth=0;
+addEventListener('dragenter',e=>{e.preventDefault();if(++dragDepth===1)$('drop').classList.add('on');});
+addEventListener('dragleave',e=>{e.preventDefault();if(--dragDepth<=0){dragDepth=0;$('drop').classList.remove('on');}});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{
+  e.preventDefault();dragDepth=0;$('drop').classList.remove('on');
+  if(e.dataTransfer?.files?.length)loadFiles([...e.dataTransfer.files]);
+});
+</script>
+</body>
+</html>
