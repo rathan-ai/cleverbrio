@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brio Profiler — free in-browser data quality report by Clever Brio</title>
+<meta name="description" content="Drop a CSV, Parquet, or JSON file and get an instant data-quality report — column types, null counts, distinct values, ranges, and top values. Runs entirely in your browser; your data never leaves your machine. Free, by Clever Brio.">
+<meta property="og:title" content="Brio Profiler — profile your data files, privately, in the browser">
+<meta property="og:description" content="Instant data-quality reports on CSV, Parquet & JSON: types, nulls, distincts, ranges, top values. No upload, no signup — data never leaves your machine.">
+<meta property="og:url" content="https://www.cleverbrio.com/tools/profiler.html">
+<link rel="canonical" href="https://www.cleverbrio.com/tools/profiler.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Analytics: cookie-less, page-level only. Never attach events to file contents
+     or anything derived from user data. Do NOT add Google Analytics.
+     TODO: paste site token below, then uncomment.
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "TODO_PASTE_SITE_TOKEN"}'></script>
+-->
+<style>
+  :root{
+    --paper:#f8fafc; --panel:#FFFFFF; --ink:#0f172a; --muted:#64748b;
+    --line:#e2e8f0; --accent:#4A90E2; --accent-soft:#EAF2FC;
+    --signal:#F5A623; --error:#B3402F; --readout-bg:#243447; --readout-fg:#F0C578;
+    --mono:ui-monospace,Menlo,Consolas,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);display:flex;flex-direction:column}
+  button{font-family:inherit;cursor:pointer}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .wordmark{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.06em;color:var(--signal)}
+  .wordmark b{color:var(--accent);font-weight:600}
+  .engine{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .led{width:9px;height:9px;border-radius:50%;background:var(--signal);animation:pulse 1.1s ease-in-out infinite}
+  .led.ok{background:#2E9B6B;animation:none}
+  .led.err{background:var(--error);animation:none}
+  @keyframes pulse{50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.led{animation:none}}
+  header .spacer{flex:1}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:4px;font-size:12.5px;font-weight:500}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  #file-input{display:none}
+
+  main{flex:1;overflow:auto;padding:22px 20px 40px;max-width:1200px;margin:0 auto;width:100%}
+
+  .dropzone{border:2px dashed var(--line);border-radius:12px;background:var(--panel);padding:56px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.7;cursor:pointer}
+  .dropzone:hover{border-color:var(--accent);color:var(--accent)}
+  .dropzone b{color:var(--ink)}
+
+  .summary{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 18px;min-width:120px}
+  .stat .k{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .stat .v{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:3px}
+  .stat .v.warn{color:var(--error)}
+
+  .cols-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .colcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .colcard header{all:unset;display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+  .colname{font-family:var(--mono);font-size:13.5px;font-weight:600;word-break:break-all}
+  .coltype{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:9999px;padding:1px 8px;color:var(--muted);white-space:nowrap}
+  .nullbar{height:6px;border-radius:3px;background:var(--accent-soft);overflow:hidden;margin:4px 0 10px}
+  .nullbar span{display:block;height:100%;background:var(--signal)}
+  .nullbar.bad span{background:var(--error)}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2.5px 0}
+  .kv .k{color:var(--muted)}
+  .kv .v{font-family:var(--mono);text-align:right;word-break:break-all}
+  .tops{margin-top:10px;border-top:1px solid var(--line);padding-top:9px}
+  .tops .t-head{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .toprow{display:grid;grid-template-columns:1fr 60px;gap:8px;align-items:center;font-size:11.5px;margin-bottom:4px}
+  .topval{font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar{position:relative;height:14px;background:var(--accent-soft);border-radius:2px;grid-column:1/-1;overflow:hidden;margin-top:-2px}
+  .topbar span{display:block;height:100%;background:var(--accent);opacity:.85}
+  .topcount{font-family:var(--mono);color:var(--muted);text-align:right}
+
+  .status{font-family:var(--mono);font-size:12px;color:var(--muted);margin:14px 0}
+  .errbox{margin:14px 0;padding:12px 14px;border:1px solid var(--error);border-left:4px solid var(--error);border-radius:4px;color:var(--error);font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+
+  footer{flex:0 0 auto;background:var(--readout-bg);color:var(--readout-fg);font-family:var(--mono);font-size:11px;letter-spacing:.05em;display:flex;gap:26px;padding:7px 16px;overflow:hidden;white-space:nowrap}
+  footer .k{opacity:.55;margin-right:6px}
+  footer a{color:var(--readout-fg)}
+
+  #drop{position:fixed;inset:0;background:rgba(74,144,226,.12);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50;border:3px dashed var(--accent)}
+  #drop.on{display:flex}
+  #drop .msg{background:var(--panel);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:14px;padding:16px 26px;border-radius:6px}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">BRIO<b>PROFILER</b></span>
+  <a href="https://www.cleverbrio.com" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:.06em" title="Clever Brio — Data Simplified for SMBs">by CLEVER BRIO ↗</a>
+  <span class="engine"><span class="led" id="led"></span><span id="engine-txt">starting engine…</span></span>
+  <span class="spacer"></span>
+  <button class="btn" id="sample-btn" title="Profile a small demo dataset">Sample data</button>
+  <button class="btn" id="add-file">Add file</button>
+  <input type="file" id="file-input" accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.jsonl">
+</header>
+
+<main>
+  <div class="dropzone" id="dropzone">
+    <b>Drop a CSV, Parquet, or JSON file here</b> (or click to browse)<br>
+    You'll get an instant report: column types, null counts, distinct values, ranges, and top values.<br>
+    🔒 Profiling runs entirely in your browser — your file is never uploaded.
+  </div>
+  <div id="report"></div>
+</main>
+
+<footer>
+  <span><span class="k">ENGINE</span><span id="ro-engine">INIT</span></span>
+  <span><span class="k">PROFILED</span><span id="ro-file">—</span></span>
+  <span style="margin-left:auto"><span class="k">NEED TO QUERY IT?</span><a href="/tools/workbench.html">Brio Workbench</a> · <a href="https://www.cleverbrio.com">cleverbrio.com → early access</a></span>
+</footer>
+
+<div id="drop"><div class="msg">Release to profile with DuckDB</div></div>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+let duckdb=null,db=null,conn=null,engineReady='';
+
+function setEngine(state,msg){
+  $('led').className='led '+(state==='ok'?'ok':state==='err'?'err':'');
+  $('engine-txt').textContent=msg;
+  $('ro-engine').textContent=state==='ok'?'READY':state==='err'?'FAULT':'INIT';
+}
+
+(async()=>{
+  try{
+    duckdb=await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm');
+    const bundle=await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+    const workerUrl=URL.createObjectURL(new Blob([`importScripts("${bundle.mainWorker}");`],{type:'text/javascript'}));
+    const worker=new Worker(workerUrl);
+    db=new duckdb.AsyncDuckDB(new duckdb.VoidLogger(),worker);
+    await db.instantiate(bundle.mainModule,bundle.pthreadWorker);
+    URL.revokeObjectURL(workerUrl);
+    conn=await db.connect();
+    engineReady='DuckDB '+(await db.getVersion());
+    setEngine('ok',engineReady);
+  }catch(e){
+    console.error(e);
+    setEngine('err','engine failed to load');
+    $('report').innerHTML=`<div class="errbox">DuckDB engine could not load.\n\nMost likely causes:\n1. A sandboxed preview blocking cdn.jsdelivr.net — open the page directly in Chrome or Edge.\n2. No internet on first load (the ~5 MB WASM bundle is fetched once, then cached).\n\nDetail: ${esc(e.message||String(e))}</div>`;
+  }
+})();
+
+const NUMRE=/INT|FLOAT|DOUBLE|DECIMAL|HUGE|BIGINT/i;
+let prevFid=null;
+
+async function profile(file){
+  if(!conn){alert('Engine not ready yet — give it a moment.');return;}
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  const reader={csv:'read_csv_auto',tsv:'read_csv_auto',txt:'read_csv_auto',
+                parquet:'read_parquet',json:'read_json_auto',ndjson:'read_json_auto',jsonl:'read_json_auto'}[ext];
+  if(!reader){$('report').innerHTML=`<div class="errbox">Unsupported type (.${esc(ext)}). Use CSV, TSV, Parquet, or JSON.</div>`;return;}
+  $('report').innerHTML='<p class="status">profiling '+esc(file.name)+'…</p>';
+  const t0=performance.now();
+  try{
+    const fid='prof_'+Date.now()+'.'+ext;
+    await db.registerFileHandle(fid,file,duckdb.DuckDBDataProtocol.BROWSER_FILEREADER,true);
+    await conn.query(`CREATE OR REPLACE VIEW data AS SELECT * FROM ${reader}('${fid}')`);
+    if(prevFid){try{await db.dropFile(prevFid);}catch(_){}}
+    prevFid=fid;
+
+    const nRows=Number((await conn.query('SELECT count(*)::VARCHAR AS c FROM data')).toArray()[0].c);
+    const summ=(await conn.query('SUMMARIZE data')).toArray().map(r=>Object.fromEntries(
+      Object.entries(r).map(([k,v])=>[k,v==null?null:String(v)])));
+    const ms=performance.now()-t0;
+
+    // top values per column (cap 40 columns to keep it fast)
+    const CAP=40;
+    const tops={};
+    for(const c of summ.slice(0,CAP)){
+      try{
+        const q=await conn.query(`SELECT "${c.column_name.replace(/"/g,'""')}"::VARCHAR AS v, count(*)::VARCHAR AS c
+          FROM data WHERE "${c.column_name.replace(/"/g,'""')}" IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC LIMIT 5`);
+        tops[c.column_name]=q.toArray().map(r=>({v:r.v,c:Number(r.c)}));
+      }catch(_){tops[c.column_name]=[];}
+    }
+    render(file,nRows,summ,tops,ms,CAP);
+  }catch(e){
+    $('report').innerHTML=`<div class="errbox">Could not profile ${esc(file.name)}: ${esc(e.message||String(e))}</div>`;
+  }
+}
+
+function render(file,nRows,summ,tops,ms,cap){
+  const worstNull=Math.max(0,...summ.map(c=>pct(c.null_percentage)));
+  let html=`<div class="summary">
+    <div class="stat"><div class="k">File</div><div class="v" style="font-size:14px">${esc(file.name)}</div></div>
+    <div class="stat"><div class="k">Rows</div><div class="v">${nRows.toLocaleString()}</div></div>
+    <div class="stat"><div class="k">Columns</div><div class="v">${summ.length}</div></div>
+    <div class="stat"><div class="k">Size</div><div class="v">${fmtBytes(file.size)}</div></div>
+    <div class="stat"><div class="k">Worst null %</div><div class="v ${worstNull>5?'warn':''}">${worstNull.toFixed(1)}%</div></div>
+    <div class="stat"><div class="k">Profiled in</div><div class="v">${ms.toFixed(0)} ms</div></div>
+  </div>`;
+  if(summ.length>cap)html+=`<p class="status">showing top values for the first ${cap} of ${summ.length} columns</p>`;
+  html+='<div class="cols-grid">';
+  for(const c of summ){
+    const np=pct(c.null_percentage);
+    const isNum=NUMRE.test(c.column_type);
+    html+=`<div class="colcard">
+      <header><span class="colname">${esc(c.column_name)}</span><span class="coltype">${esc(c.column_type)}</span></header>
+      <div class="kv"><span class="k">nulls</span><span class="v">${np.toFixed(1)}%</span></div>
+      <div class="nullbar ${np>5?'bad':''}"><span style="width:${Math.min(100,np)}%"></span></div>
+      <div class="kv"><span class="k">distinct (approx)</span><span class="v">${num(c.approx_unique)}</span></div>
+      <div class="kv"><span class="k">min</span><span class="v">${esc(trunc(c.min))}</span></div>
+      <div class="kv"><span class="k">max</span><span class="v">${esc(trunc(c.max))}</span></div>
+      ${isNum?`
+      <div class="kv"><span class="k">mean</span><span class="v">${num(c.avg)}</span></div>
+      <div class="kv"><span class="k">std dev</span><span class="v">${num(c.std)}</span></div>
+      <div class="kv"><span class="k">quartiles</span><span class="v">${num(c.q25)} · ${num(c.q50)} · ${num(c.q75)}</span></div>`:''}
+      ${topHtml(tops[c.column_name],nRows)}
+    </div>`;
+  }
+  html+='</div>';
+  $('report').innerHTML=html;
+  $('dropzone').style.display='none';
+  $('ro-file').textContent=file.name+' · '+nRows.toLocaleString()+' rows';
+}
+
+function topHtml(list,nRows){
+  if(!list||!list.length)return'';
+  const max=list[0].c;
+  return`<div class="tops"><div class="t-head">Top values</div>`+list.map(t=>`
+    <div class="toprow"><span class="topval" title="${esc(t.v)}">${esc(trunc(t.v,40))}</span>
+      <span class="topcount">${t.c.toLocaleString()}${nRows?` · ${(t.c/nRows*100).toFixed(1)}%`:''}</span>
+      <span class="topbar"><span style="width:${(t.c/max*100).toFixed(1)}%"></span></span></div>`).join('')+'</div>';
+}
+
+function pct(v){const n=Number(v);return isFinite(n)?n:0}
+function num(v){
+  if(v==null)return'—';
+  const n=Number(v);
+  if(!isFinite(n))return esc(trunc(String(v)));
+  return Number.isInteger(n)?n.toLocaleString():n.toLocaleString(undefined,{maximumFractionDigits:2});
+}
+function trunc(s,n=28){s=s==null?'—':String(s);return s.length>n?s.slice(0,n-1)+'…':s}
+function fmtBytes(n){
+  if(n==null)return'';
+  if(n<1024)return n+' B';
+  if(n<1048576)return(n/1024).toFixed(1)+' KB';
+  if(n<1073741824)return(n/1048576).toFixed(1)+' MB';
+  return(n/1073741824).toFixed(2)+' GB';
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+/* wiring */
+$('add-file').addEventListener('click',()=>$('file-input').click());
+$('dropzone').addEventListener('click',()=>$('file-input').click());
+$('file-input').addEventListener('change',e=>{if(e.target.files[0])profile(e.target.files[0]);e.target.value='';});
+$('sample-btn').addEventListener('click',()=>{
+  const regions=['North','South','East','West'],
+        products=[['Starter',49],['Pro',199],['Enterprise',499]];
+  let csv='order_date,region,product,units,unit_price,revenue\n';
+  for(let i=0;i<90;i++){
+    const d=new Date(Date.UTC(2026,0,1+i*2)).toISOString().slice(0,10);
+    const region=regions[i%4],[product,price]=products[(i*7)%3];
+    const units=1+((i*13)%9);
+    csv+=`${d},${region},${product},${units},${price},${units*price}\n`;
+  }
+  profile(new File([csv],'demo_sales.csv',{type:'text/csv'}));
+});
+
+let dragDepth=0;
+addEventListener('dragenter',e=>{e.preventDefault();if(++dragDepth===1)$('drop').classList.add('on');});
+addEventListener('dragleave',e=>{e.preventDefault();if(--dragDepth<=0){dragDepth=0;$('drop').classList.remove('on');}});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{
+  e.preventDefault();dragDepth=0;$('drop').classList.remove('on');
+  if(e.dataTransfer?.files?.[0])profile(e.dataTransfer.files[0]);
+});
+</script>
+</body>
+</html>

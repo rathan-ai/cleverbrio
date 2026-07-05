@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "cleverbrio.com" }],
+      "destination": "https://www.cleverbrio.com/:path*",
+      "permanent": true
+    }
+  ]
+}

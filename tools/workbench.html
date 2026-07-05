@@ -8,6 +8,7 @@
 <meta property="og:title" content="Brio Workbench — analyze your data files, privately, in the browser">
 <meta property="og:description" content="Free in-browser analytics on CSV, Parquet & JSON. Visual query builder, pivot tables, charts, Parquet conversion. No upload, no signup — data never leaves your machine.">
 <meta property="og:url" content="https://www.cleverbrio.com/tools/workbench.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -191,6 +192,7 @@
   <span class="spacer"></span>
   <label class="switch" style="font-size:12px"><input type="checkbox" id="auto-pq" checked> auto → parquet</label>
   <button class="btn" id="help-btn" title="Show the guided tour">? Help</button>
+  <button class="btn" id="sample-btn" title="Load a small demo dataset to try the tool">Sample data</button>
   <button class="btn" id="add-files">Add files</button>
   <input type="file" id="file-input" multiple accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.jsonl">
 </header>
@@ -199,7 +201,7 @@
   <aside>
     <div class="aside-head"><span>Catalog</span><span id="tbl-count"></span></div>
     <div class="catalog" id="catalog">
-      <div class="empty-cat">No tables yet.<br><br>Drop CSV, Parquet, or JSON files anywhere on this page — each file becomes a queryable table. Data never leaves your browser.</div>
+      <div class="empty-cat">No tables yet.<br><br>Drop CSV, Parquet, or JSON files anywhere on this page — each file becomes a queryable table. Data never leaves your browser.<br><br>Or click <b>Sample data</b> in the header to try it instantly.</div>
     </div>
   </aside>
 
@@ -879,6 +881,20 @@ $('sql').addEventListener('keydown',e=>{
 $('add-files').addEventListener('click',()=>$('file-input').click());
 $('file-input').addEventListener('change',e=>{loadFiles([...e.target.files]);e.target.value='';});
 
+/* ═══ sample dataset (generated locally — nothing downloaded) ═══ */
+$('sample-btn').addEventListener('click',()=>{
+  const regions=['North','South','East','West'],
+        products=[['Starter',49],['Pro',199],['Enterprise',499]];
+  let csv='order_date,region,product,units,unit_price,revenue\n';
+  for(let i=0;i<90;i++){
+    const d=new Date(Date.UTC(2026,0,1+i*2)).toISOString().slice(0,10);
+    const region=regions[i%4],[product,price]=products[(i*7)%3];
+    const units=1+((i*13)%9);
+    csv+=`${d},${region},${product},${units},${price},${units*price}\n`;
+  }
+  loadFiles([new File([csv],'demo_sales.csv',{type:'text/csv'})]);
+});
+
 let dragDepth=0;
 addEventListener('dragenter',e=>{e.preventDefault();if(++dragDepth===1)$('drop').classList.add('on');});
 addEventListener('dragleave',e=>{e.preventDefault();if(--dragDepth<=0){dragDepth=0;$('drop').classList.remove('on');}});
@@ -893,7 +909,7 @@ const TOUR=[
   {title:'Welcome to Brio Workbench',
    body:'Free, private analytics that runs 100% in your browser — your files never leave your machine. This 60-second tour shows you around.'},
   {sel:'#add-files',title:'Load your data',
-   body:'Click here, or simply drag & drop CSV, TSV, Parquet, or JSON files anywhere on the page. Each file becomes a queryable table.'},
+   body:'Click here, or simply drag & drop CSV, TSV, Parquet, or JSON files anywhere on the page. Each file becomes a queryable table. No file handy? “Sample data” loads a demo dataset.'},
   {sel:'#auto-pq',title:'Auto-convert to Parquet',
    body:'Leave this on and every file is converted to Parquet on load — faster queries and less memory, especially on big CSVs.'},
   {sel:'aside',title:'Your catalog',
