@@ -251,14 +251,12 @@
         }, { threshold: .1 });
         document.querySelectorAll('[data-animate]').forEach(el => io.observe(el));
 
-        // Signup form backend (Web3Forms — free, no server of our own).
-        // TODO: get an access key at https://web3forms.com (enter cleverbrio@innorag.com,
-        // the key arrives by email) and paste it below. Until then the forms fall back
-        // to the original mailto: behavior.
-        const WEB3FORMS_KEY = 'TODO_PASTE_WEB3FORMS_ACCESS_KEY';
+        // Signup form backend: first-party Vercel function (/api/subscribe)
+        // storing leads in Vercel Blob. If the endpoint is unavailable (store
+        // not connected yet, network issue), fall back to the mailto flow so
+        // no lead is lost.
         document.querySelectorAll('form.signup').forEach(form => {
             form.addEventListener('submit', async e => {
-                if (WEB3FORMS_KEY.startsWith('TODO')) return; // mailto fallback
                 e.preventDefault();
                 const btn = form.querySelector('button');
                 const email = form.querySelector('input[name=email]').value;
@@ -266,22 +264,19 @@
                 if (!msg) { msg = document.createElement('p'); msg.className = 'form-msg'; form.appendChild(msg); }
                 btn.disabled = true; msg.textContent = 'Sending…';
                 try {
-                    const r = await fetch('https://api.web3forms.com/submit', {
+                    const r = await fetch('/api/subscribe', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({
-                            access_key: WEB3FORMS_KEY,
-                            subject: 'Clever Brio early access request',
-                            from_name: 'cleverbrio.com signup form',
-                            email
-                        })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, page: location.pathname })
                     });
-                    const j = await r.json();
-                    if (!j.success) throw new Error(j.message || 'submit failed');
+                    if (!r.ok) throw new Error('status ' + r.status);
                     msg.textContent = "Thanks — you're on the list. We'll be in touch.";
                     form.reset();
                 } catch (err) {
-                    msg.textContent = 'Something went wrong — please email cleverbrio@innorag.com instead.';
+                    msg.textContent = 'Opening your email app instead…';
+                    location.href = 'mailto:cleverbrio@innorag.com?subject=' +
+                        encodeURIComponent('Early access request') +
+                        '&body=' + encodeURIComponent('Please add me to the early access list: ' + email);
                 } finally {
                     btn.disabled = false;
                 }
