@@ -8,8 +8,6 @@
 <meta property="og:title" content="Brio Workbench — analyze your data files, privately, in the browser">
 <meta property="og:description" content="Free in-browser analytics on CSV, Parquet & JSON. Visual query builder, pivot tables, charts, Parquet conversion. No upload, no signup — data never leaves your machine.">
 <meta property="og:url" content="https://www.cleverbrio.com/tools/workbench.html">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- Analytics: cookie-less, page-level only. Never attach events to file contents,
      query text, or anything derived from user data — "your data never leaves your
      browser" is the whole pitch. Do NOT add Google Analytics.
@@ -18,11 +16,12 @@
 -->
 <style>
   :root{
-    --paper:#EFF3F1; --panel:#FFFFFF; --ink:#17262E; --muted:#5C6E75;
-    --line:#D5DEDB; --accent:#0B6B5D; --accent-soft:#E3EFEC;
-    --signal:#E39A2D; --error:#B3402F; --readout-bg:#132027; --readout-fg:#F0C578;
-    --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
-    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+    /* Clever Brio site theme: blue #4A90E2 ("Clever"), orange #F5A623 ("Brio"), Arial */
+    --paper:#f8f9fa; --panel:#FFFFFF; --ink:#333333; --muted:#777777;
+    --line:#E3E7EB; --accent:#4A90E2; --accent-soft:#EAF2FC;
+    --signal:#F5A623; --error:#B3402F; --readout-bg:#243447; --readout-fg:#F0C578;
+    --mono:ui-monospace,Menlo,Consolas,monospace;
+    --sans:Arial,system-ui,-apple-system,Segoe UI,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
@@ -38,7 +37,7 @@
 
   /* ── header ── */
   header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
-  .wordmark{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.06em}
+  .wordmark{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.06em;color:var(--signal)}
   .wordmark b{color:var(--accent);font-weight:600}
   .engine{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
   .led{width:9px;height:9px;border-radius:50%;background:var(--signal);animation:pulse 1.1s ease-in-out infinite}
@@ -50,7 +49,7 @@
   .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:4px;font-size:12.5px;font-weight:500}
   .btn:hover{border-color:var(--accent);color:var(--accent)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.primary:hover{background:#0A5A4E;color:#fff}
+  .btn.primary:hover{background:#3A7BC8;color:#fff}
   .btn:disabled{opacity:.45;cursor:not-allowed}
 
   /* ── layout ── */
@@ -153,7 +152,7 @@
   footer .k{opacity:.55;margin-right:6px}
 
   /* ── drop overlay ── */
-  #drop{position:fixed;inset:0;background:rgba(11,107,93,.12);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50;border:3px dashed var(--accent)}
+  #drop{position:fixed;inset:0;background:rgba(74,144,226,.12);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50;border:3px dashed var(--accent)}
   #drop.on{display:flex}
   #drop .msg{background:var(--panel);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:14px;padding:16px 26px;border-radius:6px}
   #file-input{display:none}
