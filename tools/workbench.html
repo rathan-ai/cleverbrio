@@ -8,6 +8,9 @@
 <meta property="og:title" content="Brio Workbench — analyze your data files, privately, in the browser">
 <meta property="og:description" content="Free in-browser analytics on CSV, Parquet & JSON. Visual query builder, pivot tables, charts, Parquet conversion. No upload, no signup — data never leaves your machine.">
 <meta property="og:url" content="https://www.cleverbrio.com/tools/workbench.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- Analytics: cookie-less, page-level only. Never attach events to file contents,
      query text, or anything derived from user data — "your data never leaves your
      browser" is the whole pitch. Do NOT add Google Analytics.
@@ -16,12 +19,12 @@
 -->
 <style>
   :root{
-    /* Clever Brio site theme: blue #4A90E2 ("Clever"), orange #F5A623 ("Brio"), Arial */
-    --paper:#f8f9fa; --panel:#FFFFFF; --ink:#333333; --muted:#777777;
-    --line:#E3E7EB; --accent:#4A90E2; --accent-soft:#EAF2FC;
+    /* Clever Brio site theme: blue #4A90E2 ("Clever"), orange #F5A623 ("Brio"), Inter + slate */
+    --paper:#f8fafc; --panel:#FFFFFF; --ink:#0f172a; --muted:#64748b;
+    --line:#e2e8f0; --accent:#4A90E2; --accent-soft:#EAF2FC;
     --signal:#F5A623; --error:#B3402F; --readout-bg:#243447; --readout-fg:#F0C578;
     --mono:ui-monospace,Menlo,Consolas,monospace;
-    --sans:Arial,system-ui,-apple-system,Segoe UI,sans-serif;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
