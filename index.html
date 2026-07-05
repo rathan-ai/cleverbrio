@@ -126,10 +126,10 @@
             .signup input{min-width:0;flex:1 1 220px}
         }
     </style>
-    <!-- Analytics: cookie-less, page-level only (no user tracking). Do NOT add Google Analytics.
-         TODO: paste site token below, then uncomment.
-    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "TODO_PASTE_SITE_TOKEN"}'></script>
-    -->
+    <!-- Vercel Web Analytics: cookie-less, page-level only (no user tracking).
+     Never attach events to file contents, query text, or anything derived
+     from user data. Data appears once Web Analytics is enabled in Vercel. -->
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
     <header class="site-header">
