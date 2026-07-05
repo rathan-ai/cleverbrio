@@ -157,6 +157,21 @@
   #drop .msg{background:var(--panel);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:14px;padding:16px 26px;border-radius:6px}
   #file-input{display:none}
 
+  /* ── guided tour ── */
+  #tour-veil{position:fixed;inset:0;z-index:60;display:none}
+  #tour-hl{position:fixed;z-index:61;border-radius:6px;pointer-events:none;display:none;
+    box-shadow:0 0 0 9999px rgba(23,38,46,.55);border:2px solid var(--signal);transition:left .25s,top .25s,width .25s,height .25s}
+  #tour-tip{position:fixed;z-index:62;max-width:340px;background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px 16px;display:none;font-size:13px;line-height:1.55}
+  #tour-tip h4{margin:0 0 6px;font-size:13.5px;color:var(--accent)}
+  #tour-tip p{margin:0 0 12px;color:var(--ink)}
+  .tour-row{display:flex;align-items:center;gap:8px}
+  .tour-count{font-family:var(--mono);font-size:10.5px;color:var(--muted);flex:1}
+  .tbtn{border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:5px 12px;border-radius:4px;font-size:12px}
+  .tbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .tbtn.next{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .tbtn.next:hover{background:#3A7BC8;color:#fff}
+
   @media (max-width:760px){
     main{flex-direction:column}
     aside{width:100%;max-height:26vh;border-right:none;border-bottom:1px solid var(--line)}
@@ -172,6 +187,7 @@
   <span class="engine"><span class="led" id="led"></span><span id="engine-txt">starting engine…</span></span>
   <span class="spacer"></span>
   <label class="switch" style="font-size:12px"><input type="checkbox" id="auto-pq" checked> auto → parquet</label>
+  <button class="btn" id="help-btn" title="Show the guided tour">? Help</button>
   <button class="btn" id="add-files">Add files</button>
   <input type="file" id="file-input" multiple accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.jsonl">
 </header>
@@ -296,6 +312,9 @@
 </footer>
 
 <div id="drop"><div class="msg">Release to load files into DuckDB</div></div>
+<div id="tour-veil"></div>
+<div id="tour-hl"></div>
+<div id="tour-tip"></div>
 <datalist id="dl-vals"></datalist>
 
 <script type="module">
@@ -865,6 +884,93 @@ addEventListener('drop',e=>{
   e.preventDefault();dragDepth=0;$('drop').classList.remove('on');
   if(e.dataTransfer?.files?.length)loadFiles([...e.dataTransfer.files]);
 });
+
+/* ═══ guided tour (walkme-style) ═══ */
+const TOUR=[
+  {title:'Welcome to Brio Workbench',
+   body:'Free, private analytics that runs 100% in your browser — your files never leave your machine. This 60-second tour shows you around.'},
+  {sel:'#add-files',title:'Load your data',
+   body:'Click here, or simply drag & drop CSV, TSV, Parquet, or JSON files anywhere on the page. Each file becomes a queryable table.'},
+  {sel:'#auto-pq',title:'Auto-convert to Parquet',
+   body:'Leave this on and every file is converted to Parquet on load — faster queries and less memory, especially on big CSVs.'},
+  {sel:'aside',title:'Your catalog',
+   body:'Loaded tables live here. Click one to see its columns and types, convert it to Parquet, or download the converted copy for next time.'},
+  {sel:'#mode-build',pre:()=>$('tab-build').click(),title:'Build queries by clicking',
+   body:'Pick a table, click columns, add filters, or switch on “Group and summarize” for pivot-style aggregation. The SQL is generated live below and runs as you click.'},
+  {sel:'#mode-sql',pre:()=>$('tab-sql').click(),title:'Or write SQL directly',
+   body:'Full DuckDB SQL — including joins across your files. Ctrl/⌘ + Enter runs the query, and your past queries stay in the history dropdown.'},
+  {sel:'.res-bar',pre:()=>$('tab-build').click(),title:'Results, three ways',
+   body:'View any result as a table, a quick bar chart, or a drag-and-drop pivot with full charting (including candlestick for market data). Export anything to CSV.'},
+  {sel:'footer',title:'Engine readout',
+   body:'Engine status, query timings and row counts tick along here. Need this at company scale? That link gets you Clever Brio early access.'},
+  {title:'You’re all set',
+   body:'Drop a file and start exploring. Reopen this tour anytime with the ? Help button in the header.'}
+];
+
+let tourI=-1;
+function tourEnd(){
+  tourI=-1;
+  $('tour-veil').style.display=$('tour-hl').style.display=$('tour-tip').style.display='none';
+  try{localStorage.setItem('bw_tour_done','1');}catch(_){}
+}
+function tourShow(i){
+  if(i<0)i=0;
+  if(i>=TOUR.length)return tourEnd();
+  tourI=i;
+  const s=TOUR[i],veil=$('tour-veil'),hl=$('tour-hl'),tip=$('tour-tip');
+  if(s.pre)try{s.pre();}catch(_){}
+  veil.style.display='block';
+  requestAnimationFrame(()=>{
+    const el=s.sel?document.querySelector(s.sel):null;
+    const r=el?el.getBoundingClientRect():null;
+    if(r){
+      const pad=6;
+      hl.style.display='block';
+      hl.style.left=(r.left-pad)+'px';hl.style.top=(r.top-pad)+'px';
+      hl.style.width=(r.width+2*pad)+'px';hl.style.height=(r.height+2*pad)+'px';
+      veil.style.background='transparent';
+    }else{
+      hl.style.display='none';
+      veil.style.background='rgba(23,38,46,.55)';
+    }
+    const last=i===TOUR.length-1;
+    tip.innerHTML=`<h4>${esc(s.title)}</h4><p>${esc(s.body)}</p>
+      <div class="tour-row">
+        <span class="tour-count">${i+1} / ${TOUR.length}</span>
+        <button class="tbtn" id="tour-skip">Skip</button>
+        ${i>0?'<button class="tbtn" id="tour-back">Back</button>':''}
+        <button class="tbtn next" id="tour-next">${last?'Finish':'Next →'}</button>
+      </div>`;
+    $('tour-skip').addEventListener('click',tourEnd);
+    if($('tour-back'))$('tour-back').addEventListener('click',()=>tourShow(tourI-1));
+    $('tour-next').addEventListener('click',()=>tourShow(tourI+1));
+    // measure, then place: below target → above → beside → clamped; centered if no target
+    tip.style.display='block';tip.style.visibility='hidden';
+    const tw=tip.offsetWidth,th=tip.offsetHeight,vw=innerWidth,vh=innerHeight;
+    let x,y;
+    if(!r){x=(vw-tw)/2;y=(vh-th)/2;}
+    else{
+      y=r.bottom+14;
+      if(y+th>vh-10)y=r.top-th-14;
+      if(y<10){y=Math.min(Math.max(10,r.top),vh-th-10);x=r.right+14>vw-tw-10?r.left-tw-14:r.right+14;}
+      if(x===undefined)x=r.left+r.width/2-tw/2;
+      x=Math.min(Math.max(10,x),vw-tw-10);
+      y=Math.min(Math.max(10,y),vh-th-10);
+    }
+    tip.style.left=x+'px';tip.style.top=y+'px';tip.style.visibility='visible';
+  });
+}
+$('help-btn').addEventListener('click',()=>tourShow(0));
+document.addEventListener('keydown',e=>{
+  if(tourI<0)return;
+  if(e.key==='Escape')tourEnd();
+  else if(e.key==='ArrowRight'||e.key==='Enter')tourShow(tourI+1);
+  else if(e.key==='ArrowLeft')tourShow(tourI-1);
+});
+addEventListener('resize',()=>{if(tourI>=0)tourShow(tourI);});
+let firstVisit=false;
+try{firstVisit=!localStorage.getItem('bw_tour_done');}catch(_){}
+if(firstVisit)setTimeout(()=>{if(tourI<0)tourShow(0);},900);
 </script>
 </body>
 </html>
