@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brio Convert — free CSV, Parquet, JSON &amp; Excel converter, in your browser</title>
+<meta name="description" content="Convert between CSV, TSV, Parquet, JSON, and Excel instantly — no upload, no signup. The conversion runs entirely in your browser; your file never leaves your machine. Free, by Clever Brio.">
+<meta property="og:title" content="Brio Convert — convert data files privately, in the browser">
+<meta property="og:description" content="CSV ↔ Parquet ↔ JSON ↔ Excel, converted locally in your browser. No upload, no signup — your data never leaves your machine.">
+<meta property="og:url" content="https://www.cleverbrio.com/tools/convert.html">
+<link rel="canonical" href="https://www.cleverbrio.com/tools/convert.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Analytics: cookie-less, page-level only. Never attach events to file contents
+     or anything derived from user data. Do NOT add Google Analytics.
+     TODO: paste site token below, then uncomment.
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "TODO_PASTE_SITE_TOKEN"}'></script>
+-->
+<style>
+  :root{
+    --paper:#f8fafc; --panel:#FFFFFF; --ink:#0f172a; --muted:#64748b;
+    --line:#e2e8f0; --accent:#4A90E2; --accent-soft:#EAF2FC;
+    --signal:#F5A623; --error:#B3402F; --readout-bg:#243447; --readout-fg:#F0C578;
+    --mono:ui-monospace,Menlo,Consolas,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);display:flex;flex-direction:column}
+  button{font-family:inherit;cursor:pointer}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .wordmark{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.06em;color:var(--signal)}
+  .wordmark b{color:var(--accent);font-weight:600}
+  .engine{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .led{width:9px;height:9px;border-radius:50%;background:var(--signal);animation:pulse 1.1s ease-in-out infinite}
+  .led.ok{background:#2E9B6B;animation:none}
+  .led.err{background:var(--error);animation:none}
+  @keyframes pulse{50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.led{animation:none}}
+  header .spacer{flex:1}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:4px;font-size:12.5px;font-weight:500}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  #file-input{display:none}
+  main{flex:1;overflow:auto;padding:22px 20px 40px;max-width:900px;margin:0 auto;width:100%}
+  .dropzone{border:2px dashed var(--line);border-radius:12px;background:var(--panel);padding:56px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.7;cursor:pointer}
+  .dropzone:hover{border-color:var(--accent);color:var(--accent)}
+  .dropzone b{color:var(--ink)}
+  .filecard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+  .filecard .fname{font-family:var(--mono);font-weight:600;font-size:14px;word-break:break-all}
+  .filecard .fmeta{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .filecard .change{margin-left:auto}
+  .outs{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .outs h2{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+  .fmt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .fmt-btn{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:14px;text-align:left;transition:border-color .15s}
+  .fmt-btn:hover{border-color:var(--accent)}
+  .fmt-btn:disabled{opacity:.5}
+  .fmt-btn .f-name{font-weight:600;font-size:14px}
+  .fmt-btn .f-desc{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .status{font-family:var(--mono);font-size:12px;color:var(--muted);margin:14px 0}
+  .status.ok{color:#217a52}
+  .errbox{margin:14px 0;padding:12px 14px;border:1px solid var(--error);border-left:4px solid var(--error);border-radius:4px;color:var(--error);font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+  footer{flex:0 0 auto;background:var(--readout-bg);color:var(--readout-fg);font-family:var(--mono);font-size:11px;letter-spacing:.05em;display:flex;gap:26px;padding:7px 16px;overflow:hidden;white-space:nowrap}
+  footer .k{opacity:.55;margin-right:6px}
+  footer a{color:var(--readout-fg)}
+  #drop{position:fixed;inset:0;background:rgba(74,144,226,.12);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50;border:3px dashed var(--accent)}
+  #drop.on{display:flex}
+  #drop .msg{background:var(--panel);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:14px;padding:16px 26px;border-radius:6px}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">BRIO<b>CONVERT</b></span>
+  <a href="https://www.cleverbrio.com" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:.06em">by CLEVER BRIO ↗</a>
+  <span class="engine"><span class="led" id="led"></span><span id="engine-txt">starting engine…</span></span>
+  <span class="spacer"></span>
+  <button class="btn" id="sample-btn" title="Load a small demo dataset">Sample data</button>
+  <button class="btn" id="add-file">Add file</button>
+  <input type="file" id="file-input" accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.jsonl,.xlsx,.xls">
+</header>
+
+<main>
+  <div class="dropzone" id="dropzone">
+    <b>Drop a CSV, TSV, Parquet, JSON, or Excel file here</b> (or click to browse)<br>
+    Pick an output format and the converted file downloads instantly.<br>
+    🔒 Conversion runs entirely in your browser — your file is never uploaded.
+  </div>
+  <div id="work" style="display:none">
+    <div class="filecard">
+      <div>
+        <div class="fname" id="f-name"></div>
+        <div class="fmeta" id="f-meta"></div>
+      </div>
+      <button class="btn change" id="change-file">Change file</button>
+    </div>
+    <div class="outs">
+      <h2>Convert to</h2>
+      <div class="fmt-grid">
+        <button class="fmt-btn" data-fmt="csv"><span class="f-name">CSV</span><span class="f-desc">Comma-separated, with header</span></button>
+        <button class="fmt-btn" data-fmt="tsv"><span class="f-name">TSV</span><span class="f-desc">Tab-separated, with header</span></button>
+        <button class="fmt-btn" data-fmt="parquet"><span class="f-name">Parquet</span><span class="f-desc">Compressed, typed, analytics-ready</span></button>
+        <button class="fmt-btn" data-fmt="json"><span class="f-name">JSON</span><span class="f-desc">Newline-delimited (NDJSON)</span></button>
+        <button class="fmt-btn" data-fmt="xlsx"><span class="f-name">Excel (.xlsx)</span><span class="f-desc">First 200,000 rows</span></button>
+      </div>
+      <p class="status" id="status">ready</p>
+    </div>
+  </div>
+  <div id="errhost"></div>
+</main>
+
+<footer>
+  <span><span class="k">ENGINE</span><span id="ro-engine">INIT</span></span>
+  <span style="margin-left:auto"><span class="k">MORE FREE TOOLS</span><a href="/tools/">/tools</a> · <a href="https://www.cleverbrio.com">cleverbrio.com → early access</a></span>
+</footer>
+
+<div id="drop"><div class="msg">Release to convert with DuckDB</div></div>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+let duckdb=null,db=null,conn=null,cur=null,prevFid=null,xlsxMod=null;
+
+function setEngine(state,msg){
+  $('led').className='led '+(state==='ok'?'ok':state==='err'?'err':'');
+  $('engine-txt').textContent=msg;
+  $('ro-engine').textContent=state==='ok'?'READY':state==='err'?'FAULT':'INIT';
+}
+function showError(msg){$('errhost').innerHTML=`<div class="errbox">${esc(msg)}</div>`}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function fmtBytes(n){
+  if(n==null)return'';
+  if(n<1024)return n+' B';
+  if(n<1048576)return(n/1024).toFixed(1)+' KB';
+  if(n<1073741824)return(n/1048576).toFixed(1)+' MB';
+  return(n/1073741824).toFixed(2)+' GB';
+}
+
+(async()=>{
+  try{
+    duckdb=await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm');
+    const bundle=await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+    const workerUrl=URL.createObjectURL(new Blob([`importScripts("${bundle.mainWorker}");`],{type:'text/javascript'}));
+    const worker=new Worker(workerUrl);
+    db=new duckdb.AsyncDuckDB(new duckdb.VoidLogger(),worker);
+    await db.instantiate(bundle.mainModule,bundle.pthreadWorker);
+    URL.revokeObjectURL(workerUrl);
+    conn=await db.connect();
+    setEngine('ok','DuckDB '+(await db.getVersion()));
+  }catch(e){
+    console.error(e);
+    setEngine('err','engine failed to load');
+    showError('DuckDB engine could not load. Check the connection (the ~5 MB WASM bundle is fetched once, then cached) and reload.\n\nDetail: '+(e.message||e));
+  }
+})();
+
+async function ensureXlsx(){
+  if(!xlsxMod)xlsxMod=await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs');
+  return xlsxMod;
+}
+
+async function loadFile(file){
+  if(!conn){alert('Engine not ready yet — give it a moment.');return;}
+  $('errhost').innerHTML='';
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  try{
+    let fid,reader;
+    if(ext==='xlsx'||ext==='xls'){
+      $('status').className='status';$('status').textContent='reading Excel…';
+      const X=await ensureXlsx();
+      const wb=X.read(await file.arrayBuffer(),{type:'array'});
+      const csv=X.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
+      fid='conv_in_'+Date.now()+'.csv';
+      await db.registerFileBuffer(fid,new TextEncoder().encode(csv));
+      reader='read_csv_auto';
+      if(wb.SheetNames.length>1)$('status').textContent=`note: workbook has ${wb.SheetNames.length} sheets — using "${wb.SheetNames[0]}"`;
+    }else{
+      reader={csv:'read_csv_auto',tsv:'read_csv_auto',txt:'read_csv_auto',
+              parquet:'read_parquet',json:'read_json_auto',ndjson:'read_json_auto',jsonl:'read_json_auto'}[ext];
+      if(!reader){showError(`Unsupported type (.${ext}). Use CSV, TSV, Parquet, JSON, or Excel.`);return;}
+      fid='conv_in_'+Date.now()+'.'+ext;
+      await db.registerFileHandle(fid,file,duckdb.DuckDBDataProtocol.BROWSER_FILEREADER,true);
+    }
+    await conn.query(`CREATE OR REPLACE VIEW data AS SELECT * FROM ${reader}('${fid}')`);
+    if(prevFid){try{await db.dropFile(prevFid);}catch(_){}}
+    prevFid=fid;
+    const r=(await conn.query('SELECT count(*)::VARCHAR c FROM data')).toArray()[0].c;
+    const d=(await conn.query('DESCRIBE data')).toArray();
+    cur={name:file.name,base:file.name.replace(/\.[^.]+$/,''),rows:Number(r),cols:d.length,size:file.size};
+    $('f-name').textContent=cur.name;
+    $('f-meta').textContent=`${cur.rows.toLocaleString()} rows · ${cur.cols} cols · ${fmtBytes(cur.size)}`;
+    $('dropzone').style.display='none';
+    $('work').style.display='block';
+    if(!/note:/.test($('status').textContent)){$('status').className='status';$('status').textContent='ready — pick an output format';}
+  }catch(e){showError(`Could not load ${file.name}: ${e.message||e}`);}
+}
+
+const OUT={
+  csv:{opts:"(FORMAT CSV, HEADER)",ext:'csv',mime:'text/csv'},
+  tsv:{opts:"(FORMAT CSV, HEADER, DELIMITER '\\t')",ext:'tsv',mime:'text/tab-separated-values'},
+  parquet:{opts:"(FORMAT PARQUET, COMPRESSION ZSTD)",ext:'parquet',mime:'application/octet-stream'},
+  json:{opts:"(FORMAT JSON)",ext:'ndjson',mime:'application/x-ndjson'},
+};
+
+async function convert(fmt,btn){
+  if(!cur||!conn)return;
+  btn.disabled=true;
+  $('status').className='status';$('status').textContent='converting…';
+  try{
+    let buf,outName;
+    if(fmt==='xlsx'){
+      const X=await ensureXlsx();
+      const CAP=200000;
+      const res=await conn.query(`SELECT * FROM data LIMIT ${CAP}`);
+      const rows=res.toArray().map(r=>{
+        const o={};
+        for(const f of res.schema.fields){
+          let v=r[f.name];
+          if(typeof v==='bigint')v=Number(v);
+          else if(v instanceof Date)v=v.toISOString().slice(0,10);
+          else if(v&&typeof v==='object')v=JSON.stringify(v,(k,x)=>typeof x==='bigint'?Number(x):x);
+          o[f.name]=v;
+        }
+        return o;
+      });
+      const ws=X.utils.json_to_sheet(rows);
+      const wb=X.utils.book_new();
+      X.utils.book_append_sheet(wb,ws,'data');
+      buf=X.write(wb,{type:'array',bookType:'xlsx'});
+      outName=cur.base+'.xlsx';
+      if(cur.rows>CAP)$('status').textContent=`note: Excel export capped at ${CAP.toLocaleString()} of ${cur.rows.toLocaleString()} rows`;
+    }else{
+      const o=OUT[fmt];
+      const out='conv_out.'+o.ext;
+      await conn.query(`COPY (SELECT * FROM data) TO '${out}' ${o.opts}`);
+      buf=await db.copyFileToBuffer(out);
+      await db.dropFile(out);
+      outName=cur.base+'.'+o.ext;
+    }
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([buf],{type:fmt==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':OUT[fmt].mime}));
+    a.download=outName;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    const sz=buf.byteLength??buf.length;
+    if(!/note:/.test($('status').textContent)){
+      $('status').className='status ok';
+      $('status').textContent=`✓ ${outName} — ${fmtBytes(sz)} downloaded (was ${fmtBytes(cur.size)})`;
+    }
+  }catch(e){showError(`Conversion failed: ${e.message||e}`);$('status').textContent='conversion failed';}
+  finally{btn.disabled=false;}
+}
+
+document.querySelectorAll('.fmt-btn').forEach(b=>b.addEventListener('click',()=>convert(b.dataset.fmt,b)));
+$('add-file').addEventListener('click',()=>$('file-input').click());
+$('change-file').addEventListener('click',()=>$('file-input').click());
+$('dropzone').addEventListener('click',()=>$('file-input').click());
+$('file-input').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);e.target.value='';});
+$('sample-btn').addEventListener('click',()=>{
+  const regions=['North','South','East','West'],products=[['Starter',49],['Pro',199],['Enterprise',499]];
+  let csv='order_date,region,product,units,unit_price,revenue\n';
+  for(let i=0;i<90;i++){
+    const d=new Date(Date.UTC(2026,0,1+i*2)).toISOString().slice(0,10);
+    const region=regions[i%4],[product,price]=products[(i*7)%3];
+    const units=1+((i*13)%9);
+    csv+=`${d},${region},${product},${units},${price},${units*price}\n`;
+  }
+  loadFile(new File([csv],'demo_sales.csv',{type:'text/csv'}));
+});
+
+let dragDepth=0;
+addEventListener('dragenter',e=>{e.preventDefault();if(++dragDepth===1)$('drop').classList.add('on');});
+addEventListener('dragleave',e=>{e.preventDefault();if(--dragDepth<=0){dragDepth=0;$('drop').classList.remove('on');}});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{
+  e.preventDefault();dragDepth=0;$('drop').classList.remove('on');
+  if(e.dataTransfer?.files?.[0])loadFile(e.dataTransfer.files[0]);
+});
+</script>
+</body>
+</html>

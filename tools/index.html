@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Data Tools — Clever Brio</title>
+    <meta name="description" content="Eight free, privacy-first data tools that run entirely in your browser: query, profile, convert, inspect, scan, diff, clean, and generate DDL — no upload, no signup.">
+    <link rel="canonical" href="https://www.cleverbrio.com/tools/">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta property="og:site_name" content="Clever Brio">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.cleverbrio.com/tools/">
+    <meta property="og:title" content="Free Data Tools — Clever Brio">
+    <meta property="og:description" content="Privacy-first data tools that run entirely in your browser. No upload, no signup — your data never leaves your machine.">
+    <meta property="og:image" content="https://www.cleverbrio.com/og-image.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Analytics: cookie-less, page-level only (no user tracking). Do NOT add Google Analytics.
+         TODO: paste site token below, then uncomment.
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "TODO_PASTE_SITE_TOKEN"}'></script>
+    -->
+    <style>
+        :root{
+            --blue:#4A90E2; --blue-deep:#2E6CB5; --blue-soft:#EAF2FC;
+            --orange:#F5A623; --orange-deep:#DD9214;
+            --ink:#0f172a; --body:#475569; --muted:#64748b;
+            --line:#e2e8f0; --line-soft:#f1f5f9; --bg-soft:#f8fafc;
+        }
+        *{box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{margin:0;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--body);background:#fff;line-height:1.6;font-size:16px}
+        .container{max-width:1152px;margin:0 auto;padding:0 24px}
+        .site-header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft)}
+        .site-header .container{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:14px;padding-bottom:14px}
+        .logo{font-size:1.15rem;font-weight:700;letter-spacing:-.01em;text-decoration:none;white-space:nowrap}
+        .logo .clever{color:var(--blue)}
+        .logo .brio{color:var(--orange)}
+        .pill{display:inline-block;border-radius:9999px;padding:10px 20px;font-size:.9rem;font-weight:600;text-decoration:none;border:none;cursor:pointer;font-family:inherit;white-space:nowrap}
+        .pill.primary{background:var(--orange);color:#fff;box-shadow:0 1px 2px rgba(15,23,42,.08)}
+        .pill.primary:hover{background:var(--orange-deep)}
+        .hero{background:linear-gradient(180deg,rgba(234,242,252,.6) 0%,#fff 70%);padding:64px 0 40px}
+        .eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin:0}
+        h1{font-size:clamp(2rem,4vw,2.8rem);font-weight:650;letter-spacing:-.025em;color:var(--ink);margin:10px 0 0}
+        .lede{margin:16px 0 0;max-width:640px;font-size:1.05rem}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;padding:40px 0 80px}
+        .tool{display:flex;flex-direction:column;align-items:flex-start;border:1px solid var(--line-soft);border-radius:16px;background:#fff;padding:24px 26px;transition:transform .2s,box-shadow .2s,border-color .2s;text-decoration:none;color:inherit}
+        .tool:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(15,23,42,.06);border-color:rgba(74,144,226,.4)}
+        .tool h2{margin:0;font-size:1.1rem;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px}
+        .tool h2 .arrow{color:var(--muted);transition:transform .2s,color .2s;font-weight:400}
+        .tool:hover h2 .arrow{transform:translateX(3px);color:var(--blue)}
+        .tool p{margin:8px 0 0;font-size:.92rem;line-height:1.55}
+        .tool .use{margin-top:10px;font-size:.78rem;color:var(--muted);font-family:ui-monospace,Menlo,monospace}
+        .privacy-note{background:var(--blue-soft);border:1px solid #d7e6f9;border-radius:12px;padding:16px 22px;font-size:.92rem;color:var(--ink);margin-top:34px}
+        .site-footer{border-top:1px solid var(--line-soft);background:var(--bg-soft)}
+        .site-footer .container{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:30px;padding-bottom:30px;font-size:.85rem;color:var(--muted)}
+        .site-footer .logo{font-size:.95rem}
+        .site-footer a{color:inherit}
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <a class="logo" href="/"><span class="clever">Clever</span> <span class="brio">Brio</span></a>
+            <a class="pill primary" href="/#early-access">Request Early Access</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <p class="eyebrow">Free Tools</p>
+                <h1>Data utilities that never see your data.</h1>
+                <p class="lede">Every tool on this page runs entirely in your browser — powered by the same
+                   engine technology behind the Clever Brio lakehouse. No upload, no signup, no install.
+                   Your files never leave your machine.</p>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <div class="grid">
+                    <a class="tool" href="/tools/workbench.html">
+                        <h2>Brio Workbench <span class="arrow">→</span></h2>
+                        <p>Instant analytics on data files: visual query builder or full SQL, pivot tables, charts, and CSV/Parquet export.</p>
+                        <span class="use">query · pivot · chart · join files</span>
+                    </a>
+                    <a class="tool" href="/tools/profiler.html">
+                        <h2>Brio Profiler <span class="arrow">→</span></h2>
+                        <p>Drop a file, get a data-quality report: types, null bars, distinct counts, ranges, quartiles, and top values.</p>
+                        <span class="use">know your data before you trust it</span>
+                    </a>
+                    <a class="tool" href="/tools/convert.html">
+                        <h2>Brio Convert <span class="arrow">→</span></h2>
+                        <p>CSV, TSV, Parquet, JSON, and Excel — in and out, converted locally with one click.</p>
+                        <span class="use">csv ↔ parquet ↔ json ↔ xlsx</span>
+                    </a>
+                    <a class="tool" href="/tools/parquet-viewer.html">
+                        <h2>Brio Parquet Viewer <span class="arrow">→</span></h2>
+                        <p>Open .parquet files without installing anything: schema, row groups, compression stats, metadata, and a preview.</p>
+                        <span class="use">no python required</span>
+                    </a>
+                    <a class="tool" href="/tools/pii-scanner.html">
+                        <h2>Brio PII Scanner <span class="arrow">→</span></h2>
+                        <p>Find emails, phones, card numbers, national IDs, names, and addresses in a file — with a severity-ranked report.</p>
+                        <span class="use">the scan never leaves your browser</span>
+                    </a>
+                    <a class="tool" href="/tools/diff.html">
+                        <h2>Brio Diff <span class="arrow">→</span></h2>
+                        <p>Compare two versions of a file: added, removed, and changed rows plus schema differences, exportable as CSV.</p>
+                        <span class="use">what changed between exports?</span>
+                    </a>
+                    <a class="tool" href="/tools/cleaner.html">
+                        <h2>Brio Cleaner <span class="arrow">→</span></h2>
+                        <p>Standardize headers, trim whitespace, dedupe rows, normalize dates, drop empty rows and columns — download clean.</p>
+                        <span class="use">messy csv in, tidy csv out</span>
+                    </a>
+                    <a class="tool" href="/tools/ddl.html">
+                        <h2>Brio DDL <span class="arrow">→</span></h2>
+                        <p>Infer a schema from any file and generate CREATE TABLE for Postgres, MySQL, Trino, Snowflake, DuckDB — plus dbt YAML.</p>
+                        <span class="use">file → create table</span>
+                    </a>
+                </div>
+                <div class="privacy-note" style="margin:0 0 80px">
+                    🔒 <b>Why in-browser?</b> Because tools that make you upload your data are asking for trust they
+                    haven't earned. Local-first is the same principle behind the
+                    <a href="/" style="color:var(--blue)">Clever Brio lakehouse</a> — your data, under your control.
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <span class="logo"><span class="clever">Clever</span> <span class="brio">Brio</span></span>
+            <span>&copy; 2025 <a href="https://www.innorag.com" target="_blank" rel="noopener">innorag</a>. All rights reserved.</span>
+        </div>
+    </footer>
+</body>
+</html>

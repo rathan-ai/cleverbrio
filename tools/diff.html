@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brio Diff — compare two CSV or Parquet files in your browser, free</title>
+<meta name="description" content="Compare two data files: see added, removed, and changed rows plus schema differences — entirely in your browser, no upload. Free, by Clever Brio.">
+<meta property="og:title" content="Brio Diff — compare data files privately, in the browser">
+<meta property="og:description" content="Row-level and schema diff for CSV, Parquet & JSON files. Runs locally — your data never leaves your machine.">
+<meta property="og:url" content="https://www.cleverbrio.com/tools/diff.html">
+<link rel="canonical" href="https://www.cleverbrio.com/tools/diff.html">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Analytics: cookie-less, page-level only. Never attach events to file contents
+     or anything derived from user data. Do NOT add Google Analytics.
+     TODO: paste site token below, then uncomment.
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "TODO_PASTE_SITE_TOKEN"}'></script>
+-->
+<style>
+  :root{
+    --paper:#f8fafc; --panel:#FFFFFF; --ink:#0f172a; --muted:#64748b;
+    --line:#e2e8f0; --accent:#4A90E2; --accent-soft:#EAF2FC;
+    --signal:#F5A623; --error:#B3402F; --readout-bg:#243447; --readout-fg:#F0C578;
+    --add:#217A52; --add-soft:#E4F3EC; --rem:#B3402F; --rem-soft:#FBEAE7; --chg:#B87708; --chg-soft:#FDF3E1;
+    --mono:ui-monospace,Menlo,Consolas,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);display:flex;flex-direction:column}
+  button{font-family:inherit;cursor:pointer}
+  select{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:4px;padding:6px 8px;background:var(--panel);color:var(--ink)}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .wordmark{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.06em;color:var(--signal)}
+  .wordmark b{color:var(--accent);font-weight:600}
+  .engine{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .led{width:9px;height:9px;border-radius:50%;background:var(--signal);animation:pulse 1.1s ease-in-out infinite}
+  .led.ok{background:#2E9B6B;animation:none}
+  .led.err{background:var(--error);animation:none}
+  @keyframes pulse{50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.led{animation:none}}
+  header .spacer{flex:1}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:4px;font-size:12.5px;font-weight:500}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:#3A7BC8;color:#fff}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  input[type=file]{display:none}
+  main{flex:1;overflow:auto;padding:22px 20px 40px;max-width:1200px;margin:0 auto;width:100%}
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+  @media(max-width:700px){.slots{grid-template-columns:1fr}}
+  .slot{border:2px dashed var(--line);border-radius:12px;background:var(--panel);padding:26px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;cursor:pointer}
+  .slot:hover{border-color:var(--accent)}
+  .slot .which{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:6px}
+  .slot.loaded{border-style:solid}
+  .slot .fname{font-family:var(--mono);font-weight:600;color:var(--ink);word-break:break-all}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:16px}
+  .controls label{font-size:12.5px;color:var(--muted);font-weight:500}
+  .summary{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+  .stat{border-radius:10px;padding:12px 18px;min-width:120px;border:1px solid var(--line);background:var(--panel)}
+  .stat.add{background:var(--add-soft);border-color:var(--add)}
+  .stat.rem{background:var(--rem-soft);border-color:var(--rem)}
+  .stat.chg{background:var(--chg-soft);border-color:var(--chg)}
+  .stat .k{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .stat .v{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:3px}
+  .stat.add .v{color:var(--add)}.stat.rem .v{color:var(--rem)}.stat.chg .v{color:var(--chg)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px;overflow-x:auto}
+  .card h2{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:10px}
+  .card h2 .exp{margin-left:auto}
+  table.t{border-collapse:collapse;font-family:var(--mono);font-size:12px;width:100%;min-width:480px}
+  table.t th{text-align:left;font-weight:600;padding:6px 12px;border-bottom:2px solid var(--ink);white-space:nowrap}
+  table.t td{padding:5px 12px;border-bottom:1px solid var(--line);white-space:nowrap;max-width:420px;overflow:hidden;text-overflow:ellipsis}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;border-radius:9999px;padding:2px 10px;margin:2px 4px 2px 0}
+  .chip.add{background:var(--add-soft);color:var(--add)}
+  .chip.rem{background:var(--rem-soft);color:var(--rem)}
+  .chip.chg{background:var(--chg-soft);color:var(--chg)}
+  .status{font-family:var(--mono);font-size:12px;color:var(--muted);margin:10px 0}
+  .warn{color:var(--chg)}
+  .errbox{margin:14px 0;padding:12px 14px;border:1px solid var(--error);border-left:4px solid var(--error);border-radius:4px;color:var(--error);font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+  footer{flex:0 0 auto;background:var(--readout-bg);color:var(--readout-fg);font-family:var(--mono);font-size:11px;letter-spacing:.05em;display:flex;gap:26px;padding:7px 16px;overflow:hidden;white-space:nowrap}
+  footer .k{opacity:.55;margin-right:6px}
+  footer a{color:var(--readout-fg)}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">BRIO<b>DIFF</b></span>
+  <a href="https://www.cleverbrio.com" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:.06em">by CLEVER BRIO ↗</a>
+  <span class="engine"><span class="led" id="led"></span><span id="engine-txt">starting engine…</span></span>
+  <span class="spacer"></span>
+  <button class="btn" id="sample-btn" title="Compare two demo file versions">Sample data</button>
+</header>
+
+<main>
+  <div class="slots">
+    <div class="slot" id="slot-a">
+      <span class="which">A · Original</span>
+      <span id="slot-a-body">Drop or click to choose the “before” file<br>(CSV, TSV, Parquet, JSON)</span>
+    </div>
+    <div class="slot" id="slot-b">
+      <span class="which">B · Updated</span>
+      <span id="slot-b-body">Drop or click to choose the “after” file</span>
+    </div>
+  </div>
+  <input type="file" id="file-a" accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.jsonl">
+  <input type="file" id="file-b" accept=".csv,.tsv,.txt,.parquet,.json,.ndjson,.jsonl">
+
+  <div class="controls" id="controls" style="display:none">
+    <label>Key column</label>
+    <select id="key-select"></select>
+    <button class="btn primary" id="compare-btn">Compare</button>
+    <span class="status" id="key-warn" style="margin:0"></span>
+  </div>
+
+  <div id="report"></div>
+</main>
+
+<footer>
+  <span><span class="k">ENGINE</span><span id="ro-engine">INIT</span></span>
+  <span style="margin-left:auto"><span class="k">MORE FREE TOOLS</span><a href="/tools/">/tools</a> · <a href="https://www.cleverbrio.com">cleverbrio.com → early access</a></span>
+</footer>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+let duckdb=null,db=null,conn=null;
+const files={a:null,b:null},fids={a:null,b:null};
+
+function setEngine(state,msg){
+  $('led').className='led '+(state==='ok'?'ok':state==='err'?'err':'');
+  $('engine-txt').textContent=msg;
+  $('ro-engine').textContent=state==='ok'?'READY':state==='err'?'FAULT':'INIT';
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function qi(c){return'"'+String(c).replace(/"/g,'""')+'"'}
+function showError(msg){$('report').innerHTML=`<div class="errbox">${esc(msg)}</div>`}
+
+(async()=>{
+  try{
+    duckdb=await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm');
+    const bundle=await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+    const workerUrl=URL.createObjectURL(new Blob([`importScripts("${bundle.mainWorker}");`],{type:'text/javascript'}));
+    const worker=new Worker(workerUrl);
+    db=new duckdb.AsyncDuckDB(new duckdb.VoidLogger(),worker);
+    await db.instantiate(bundle.mainModule,bundle.pthreadWorker);
+    URL.revokeObjectURL(workerUrl);
+    conn=await db.connect();
+    setEngine('ok','DuckDB '+(await db.getVersion()));
+  }catch(e){
+    console.error(e);
+    setEngine('err','engine failed to load');
+    showError('DuckDB engine could not load. Check the connection and reload.\n\nDetail: '+(e.message||e));
+  }
+})();
+
+async function q(sql){return(await conn.query(sql)).toArray()}
+
+async function loadSide(side,file){
+  if(!conn){alert('Engine not ready yet — give it a moment.');return;}
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  const reader={csv:'read_csv_auto',tsv:'read_csv_auto',txt:'read_csv_auto',
+                parquet:'read_parquet',json:'read_json_auto',ndjson:'read_json_auto',jsonl:'read_json_auto'}[ext];
+  if(!reader){showError(`Unsupported type (.${ext}).`);return;}
+  try{
+    const fid='diff_'+side+'_'+Date.now()+'.'+ext;
+    if(file.buffer)await db.registerFileBuffer(fid,file.buffer);
+    else await db.registerFileHandle(fid,file,duckdb.DuckDBDataProtocol.BROWSER_FILEREADER,true);
+    await conn.query(`CREATE OR REPLACE VIEW ${side} AS SELECT * FROM ${reader}('${fid}')`);
+    if(fids[side]){try{await db.dropFile(fids[side]);}catch(_){}}
+    fids[side]=fid;
+    const n=Number((await q(`SELECT count(*)::VARCHAR c FROM ${side}`))[0].c);
+    files[side]={name:file.name,rows:n};
+    const slot=$('slot-'+side);
+    slot.classList.add('loaded');
+    $('slot-'+side+'-body').innerHTML=`<span class="fname">${esc(file.name)}</span><br>${n.toLocaleString()} rows — click to change`;
+    $('report').innerHTML='';
+    if(files.a&&files.b)await prepControls();
+  }catch(e){showError(`Could not load ${file.name}: ${e.message||e}`);}
+}
+
+let commonCols=[];
+async function prepControls(){
+  const ca=(await q('DESCRIBE a')).map(r=>({n:r.column_name,t:r.column_type}));
+  const cb=(await q('DESCRIBE b')).map(r=>({n:r.column_name,t:r.column_type}));
+  commonCols=ca.filter(x=>cb.some(y=>y.n===x.n)).map(x=>x.n);
+  if(!commonCols.length){showError('The two files share no column names — nothing to compare on.');return;}
+  const guess=commonCols.find(c=>/^id$|_id$|^key$|^pk$/i.test(c))||commonCols[0];
+  $('key-select').innerHTML=commonCols.map(c=>`<option ${c===guess?'selected':''}>${esc(c)}</option>`).join('');
+  $('controls').style.display='flex';
+  $('key-warn').textContent='';
+  compare(); // auto-run with the guessed key
+}
+
+async function compare(){
+  if(!files.a||!files.b)return;
+  const key=$('key-select').value;
+  $('compare-btn').disabled=true;
+  $('report').innerHTML='<p class="status">comparing…</p>';
+  try{
+    const k=qi(key);
+    // key uniqueness check
+    const [ua]=await q(`SELECT count(*)::VARCHAR n, count(DISTINCT ${k})::VARCHAR d FROM a`);
+    const [ub]=await q(`SELECT count(*)::VARCHAR n, count(DISTINCT ${k})::VARCHAR d FROM b`);
+    const dupWarn=(Number(ua.n)!==Number(ua.d)||Number(ub.n)!==Number(ub.d))
+      ?`⚠ "${key}" is not unique in ${Number(ua.n)!==Number(ua.d)?'A':''}${Number(ua.n)!==Number(ua.d)&&Number(ub.n)!==Number(ub.d)?' and ':''}${Number(ub.n)!==Number(ub.d)?'B':''} — changed-row counts may be inflated.`:'';
+    $('key-warn').innerHTML=dupWarn?`<span class="warn">${esc(dupWarn)}</span>`:'';
+
+    // schema diff
+    const ca=(await q('DESCRIBE a')).map(r=>({n:r.column_name,t:r.column_type}));
+    const cb=(await q('DESCRIBE b')).map(r=>({n:r.column_name,t:r.column_type}));
+    const addedCols=cb.filter(x=>!ca.some(y=>y.n===x.n));
+    const removedCols=ca.filter(x=>!cb.some(y=>y.n===x.n));
+    const typeChanged=ca.filter(x=>{const y=cb.find(z=>z.n===x.n);return y&&y.t!==x.t;})
+      .map(x=>({n:x.n,from:x.t,to:cb.find(z=>z.n===x.n).t}));
+
+    const compareCols=commonCols.filter(c=>c!==key).slice(0,30);
+    const diffCond=compareCols.map(c=>`a.${qi(c)} IS DISTINCT FROM b.${qi(c)}`).join(' OR ')||'FALSE';
+    const changeDetail=compareCols.map(c=>
+      `CASE WHEN a.${qi(c)} IS DISTINCT FROM b.${qi(c)} THEN '${c.replace(/'/g,"''")}: '||coalesce(a.${qi(c)}::VARCHAR,'∅')||' → '||coalesce(b.${qi(c)}::VARCHAR,'∅') END`).join(',');
+
+    const added=await q(`SELECT * FROM b WHERE NOT EXISTS (SELECT 1 FROM a WHERE a.${k}=b.${k}) LIMIT 51`);
+    const removed=await q(`SELECT * FROM a WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.${k}=a.${k}) LIMIT 51`);
+    const [cnts]=await q(`SELECT
+      (SELECT count(*)::VARCHAR FROM b WHERE NOT EXISTS (SELECT 1 FROM a WHERE a.${k}=b.${k})) na,
+      (SELECT count(*)::VARCHAR FROM a WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.${k}=a.${k})) nr,
+      (SELECT count(*)::VARCHAR FROM a JOIN b ON a.${k}=b.${k} WHERE ${diffCond}) nc,
+      (SELECT count(*)::VARCHAR FROM a JOIN b ON a.${k}=b.${k} WHERE NOT (${diffCond})) nu`);
+    const changed=await q(`SELECT a.${k} AS key, concat_ws(' ; ',${changeDetail}) AS changes
+      FROM a JOIN b ON a.${k}=b.${k} WHERE ${diffCond} LIMIT 51`);
+
+    let html='';
+    if(addedCols.length||removedCols.length||typeChanged.length){
+      html+=`<div class="card"><h2>Schema changes</h2>`+
+        addedCols.map(c=>`<span class="chip add">+ ${esc(c.n)} (${esc(c.t)})</span>`).join('')+
+        removedCols.map(c=>`<span class="chip rem">− ${esc(c.n)} (${esc(c.t)})</span>`).join('')+
+        typeChanged.map(c=>`<span class="chip chg">~ ${esc(c.n)}: ${esc(c.from)} → ${esc(c.to)}</span>`).join('')+
+        '</div>';
+    }
+    html+=`<div class="summary">
+      <div class="stat add"><div class="k">Added rows</div><div class="v">+${Number(cnts.na).toLocaleString()}</div></div>
+      <div class="stat rem"><div class="k">Removed rows</div><div class="v">−${Number(cnts.nr).toLocaleString()}</div></div>
+      <div class="stat chg"><div class="k">Changed rows</div><div class="v">~${Number(cnts.nc).toLocaleString()}</div></div>
+      <div class="stat"><div class="k">Unchanged</div><div class="v">${Number(cnts.nu).toLocaleString()}</div></div>
+    </div>`;
+    html+=previewCard('Added rows (in B, not in A)',added,'added');
+    html+=previewCard('Removed rows (in A, not in B)',removed,'removed');
+    if(changed.length){
+      html+=`<div class="card"><h2>Changed rows <button class="btn exp" data-exp="changed">Export CSV</button></h2>
+        <table class="t"><thead><tr><th>${esc(key)}</th><th>changes (old → new)</th></tr></thead><tbody>`+
+        changed.slice(0,50).map(r=>`<tr><td>${esc(String(r.key))}</td><td>${esc(String(r.changes))}</td></tr>`).join('')+
+        '</tbody></table>'+(changed.length>50?'<p class="status">showing first 50</p>':'')+
+        (commonCols.length-1>30?`<p class="status">comparing first 30 of ${commonCols.length-1} common columns</p>`:'')+'</div>';
+    }
+    $('report').innerHTML=html;
+    document.querySelectorAll('[data-exp]').forEach(b=>b.addEventListener('click',()=>exportSet(b.dataset.exp,key)));
+  }catch(e){showError('Comparison failed: '+(e.message||e));}
+  finally{$('compare-btn').disabled=false;}
+}
+
+function previewCard(title,rows,expId){
+  if(!rows.length)return'';
+  const fields=Object.keys(rows[0]);
+  return`<div class="card"><h2>${esc(title)} <button class="btn exp" data-exp="${expId}">Export CSV</button></h2>
+    <table class="t"><thead><tr>${fields.map(f=>`<th>${esc(f)}</th>`).join('')}</tr></thead><tbody>`+
+    rows.slice(0,50).map(r=>'<tr>'+fields.map(f=>{
+      const v=r[f];
+      return`<td>${v==null?'<i style="color:var(--muted)">null</i>':esc(String(v))}</td>`;
+    }).join('')+'</tr>').join('')+'</tbody></table>'+
+    (rows.length>50?'<p class="status">showing first 50</p>':'')+'</div>';
+}
+
+async function exportSet(which,key){
+  const k=qi(key);
+  const sql={
+    added:`SELECT * FROM b WHERE NOT EXISTS (SELECT 1 FROM a WHERE a.${k}=b.${k})`,
+    removed:`SELECT * FROM a WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.${k}=a.${k})`,
+    changed:`SELECT a.* FROM a JOIN b ON a.${k}=b.${k} WHERE ${commonCols.filter(c=>c!==key).slice(0,30).map(c=>`a.${qi(c)} IS DISTINCT FROM b.${qi(c)}`).join(' OR ')||'FALSE'}`
+  }[which];
+  try{
+    await conn.query(`COPY (${sql}) TO 'exp.csv' (FORMAT CSV, HEADER)`);
+    const buf=await db.copyFileToBuffer('exp.csv');
+    await db.dropFile('exp.csv');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([buf],{type:'text/csv'}));
+    a.download='diff_'+which+'.csv';a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  }catch(e){showError('Export failed: '+(e.message||e));}
+}
+
+$('slot-a').addEventListener('click',()=>$('file-a').click());
+$('slot-b').addEventListener('click',()=>$('file-b').click());
+$('file-a').addEventListener('change',e=>{if(e.target.files[0])loadSide('a',e.target.files[0]);e.target.value='';});
+$('file-b').addEventListener('change',e=>{if(e.target.files[0])loadSide('b',e.target.files[0]);e.target.value='';});
+$('compare-btn').addEventListener('click',compare);
+$('key-select').addEventListener('change',compare);
+
+// drag & drop straight onto a slot
+for(const side of['a','b']){
+  const slot=$('slot-'+side);
+  slot.addEventListener('dragover',e=>{e.preventDefault();slot.style.borderColor='var(--accent)';});
+  slot.addEventListener('dragleave',()=>slot.style.borderColor='');
+  slot.addEventListener('drop',e=>{
+    e.preventDefault();slot.style.borderColor='';
+    if(e.dataTransfer?.files?.[0])loadSide(side,e.dataTransfer.files[0]);
+  });
+}
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>e.preventDefault());
+
+$('sample-btn').addEventListener('click',async()=>{
+  const mk=(version)=>{
+    const regions=['North','South','East','West'],products=[['Starter',49],['Pro',199],['Enterprise',499]];
+    let csv='order_id,order_date,region,product,units,unit_price,revenue\n';
+    for(let i=0;i<80;i++){
+      if(version===2&&i%17===0)continue;                       // removed rows in v2
+      const d=new Date(Date.UTC(2026,0,1+i*2)).toISOString().slice(0,10);
+      const region=regions[i%4];
+      let [product,price]=products[(i*7)%3];
+      let units=1+((i*13)%9);
+      if(version===2&&i%9===0)units+=2;                        // changed rows in v2
+      csv+=`${5000+i},${d},${region},${product},${units},${price},${units*price}\n`;
+    }
+    if(version===2)for(let i=80;i<86;i++){                     // added rows in v2
+      const d=new Date(Date.UTC(2026,6,1+i)).toISOString().slice(0,10);
+      csv+=`${5000+i},${d},North,Pro,3,199,597\n`;
+    }
+    return csv;
+  };
+  await loadSide('a',new File([mk(1)],'orders_june.csv',{type:'text/csv'}));
+  await loadSide('b',new File([mk(2)],'orders_july.csv',{type:'text/csv'}));
+});
+</script>
+</body>
+</html>
